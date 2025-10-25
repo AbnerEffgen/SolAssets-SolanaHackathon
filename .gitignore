@@ -4,7 +4,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-package-lock.json
 yarn.lock
 
 # --- Build outputs ---
@@ -41,8 +40,11 @@ target/
 **/Anchor.toml
 **/migrations/
 # Sometimes Solana CLI keypair files
-*.json
-!package.json  # don't ignore the main one
+target/deploy/*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!components.json
 
 # --- TypeScript ---
 *.tsbuildinfo
