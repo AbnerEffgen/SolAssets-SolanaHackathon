@@ -173,7 +173,7 @@ const Landing = () => {
             <span className="font-semibold">SolAssets</span>
           </div>
           <p className="text-sm text-muted-foreground">
-            Powered by Solana • Built with Lovable
+            Powered by Solana
           </p>
           <div className="flex gap-6">
             <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
