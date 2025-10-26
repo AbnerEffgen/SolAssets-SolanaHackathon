@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Coins, ShieldCheck, TrendingUp, Wallet, Vote, LineChart } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Coins, ShieldCheck, TrendingUp, Wallet, LineChart } from "lucide-react";
+import { Link } from "react-router-dom"; // Importar Link
 import heroImage from "@/assets/hero-tokenization.jpg";
 
 const Landing = () => {
@@ -42,7 +42,7 @@ const Landing = () => {
               Como funciona
             </a>
             <Link to="/auth">
-              <Button variant="outline">Entrar</Button>
+                <Button variant="outline">Entrar</Button>
             </Link>
           </nav>
         </div>
@@ -65,7 +65,7 @@ const Landing = () => {
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link to="/auth">
                   <Button variant="hero" size="lg" className="w-full sm:w-auto">
-                    Começar agora
+                    Conectar Carteira
                   </Button>
                 </Link>
                 <Button variant="outline" size="lg" className="w-full sm:w-auto">
@@ -74,9 +74,9 @@ const Landing = () => {
               </div>
             </div>
             <div className="relative animate-slide-up">
-              <img 
-                src={heroImage} 
-                alt="Tokenização de ativos" 
+              <img
+                src={heroImage}
+                alt="Tokenização de ativos"
                 className="rounded-2xl shadow-card"
               />
               <div className="absolute -bottom-6 -left-6 bg-card/80 backdrop-blur-sm p-4 rounded-xl border border-border">
@@ -92,7 +92,7 @@ const Landing = () => {
 
       {/* Features Section */}
       <section id="features" className="py-20 px-4">
-        <div className="container mx-auto">
+           <div className="container mx-auto">
           <div className="text-center mb-16">
             <h3 className="text-4xl font-bold mb-4">
               Tokenização sem complexidade
@@ -103,7 +103,7 @@ const Landing = () => {
           </div>
           <div className="grid md:grid-cols-3 gap-8">
             {features.map((feature, index) => (
-              <Card 
+              <Card
                 key={index}
                 className="p-8 bg-card/50 backdrop-blur-sm border-border hover:border-primary transition-all duration-300 hover:shadow-glow animate-fade-in"
                 style={{ animationDelay: `${index * 0.1}s` }}
@@ -121,7 +121,7 @@ const Landing = () => {
 
       {/* How it works */}
       <section id="how-it-works" className="py-20 px-4 bg-card/20">
-        <div className="container mx-auto">
+         <div className="container mx-auto">
           <div className="text-center mb-16">
             <h3 className="text-4xl font-bold mb-4">
               Como funciona
@@ -158,7 +158,7 @@ const Landing = () => {
             </p>
             <Link to="/auth">
               <Button variant="gold" size="lg">
-                Criar conta gratuita
+                Conectar Carteira
               </Button>
             </Link>
           </Card>
@@ -167,7 +167,7 @@ const Landing = () => {
 
       {/* Footer */}
       <footer className="border-t border-border py-8 px-4">
-        <div className="container mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+         <div className="container mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <Wallet className="w-6 h-6 text-primary" />
             <span className="font-semibold">SolAssets</span>

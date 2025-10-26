@@ -1,19 +1,21 @@
 import { ReactNode, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { 
-  Coins, 
-  Home, 
-  FileText, 
-  Vote, 
-  TrendingUp, 
-  Bell, 
+import {
+  Coins,
+  Home,
+  FileText,
+  Vote,
+  TrendingUp,
+  Bell,
   Wallet,
   Menu,
   X,
   Settings
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+// Importar o botão do Wallet Adapter
+import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -54,10 +56,8 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               </h1>
             </Link>
           </div>
-          <Button variant="hero">
-            <Wallet className="mr-2" />
-            Conectar Wallet
-          </Button>
+          {/* Substituir o botão antigo por este */}
+          <WalletMultiButton style={{ height: '40px', fontSize: '14px' }} />
         </div>
       </header>
 
