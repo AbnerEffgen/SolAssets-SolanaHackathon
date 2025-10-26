@@ -14,287 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
-      governance_proposals: {
-        Row: {
-          created_at: string
-          created_by: string
-          description: string | null
-          ends_at: string
-          id: string
-          status: string | null
-          title: string
-          token_id: string
-          vote_count_no: number
-          vote_count_yes: number
-        }
-        Insert: {
-          created_at?: string
-          created_by: string
-          description?: string | null
-          ends_at: string
-          id?: string
-          status?: string | null
-          title: string
-          token_id: string
-          vote_count_no?: number
-          vote_count_yes?: number
-        }
-        Update: {
-          created_at?: string
-          created_by?: string
-          description?: string | null
-          ends_at?: string
-          id?: string
-          status?: string | null
-          title?: string
-          token_id?: string
-          vote_count_no?: number
-          vote_count_yes?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "governance_proposals_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "tokens"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      market_orders: {
-        Row: {
-          created_at: string
-          id: string
-          order_type: string
-          price: number
-          quantity: number
-          status: string | null
-          token_id: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          order_type: string
-          price: number
-          quantity: number
-          status?: string | null
-          token_id: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          order_type?: string
-          price?: number
-          quantity?: number
-          status?: string | null
-          token_id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "market_orders_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "tokens"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      notifications: {
-        Row: {
-          created_at: string
-          id: string
-          message: string
-          read: boolean
-          title: string
-          type: string | null
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          message: string
-          read?: boolean
-          title: string
-          type?: string | null
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          message?: string
-          read?: boolean
-          title?: string
-          type?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
       profiles: {
         Row: {
-          avatar_url: string | null
-          bio: string | null
           created_at: string
-          full_name: string | null
+          email: string | null
+          full_name: string
           id: string
-          phone: string | null
-          updated_at: string
-          wallet_address: string | null
-        }
-        Insert: {
-          avatar_url?: string | null
-          bio?: string | null
-          created_at?: string
-          full_name?: string | null
-          id: string
-          phone?: string | null
-          updated_at?: string
-          wallet_address?: string | null
-        }
-        Update: {
-          avatar_url?: string | null
-          bio?: string | null
-          created_at?: string
-          full_name?: string | null
-          id?: string
-          phone?: string | null
-          updated_at?: string
-          wallet_address?: string | null
-        }
-        Relationships: []
-      }
-      proposal_votes: {
-        Row: {
-          created_at: string
-          id: string
-          proposal_id: string
-          user_id: string
-          vote: string
+          update_at: string
+          wallet_address: string
         }
         Insert: {
           created_at?: string
+          email?: string | null
+          full_name: string
           id?: string
-          proposal_id: string
-          user_id: string
-          vote: string
+          update_at?: string
+          wallet_address: string
         }
         Update: {
           created_at?: string
+          email?: string | null
+          full_name?: string
           id?: string
-          proposal_id?: string
-          user_id?: string
-          vote?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "proposal_votes_proposal_id_fkey"
-            columns: ["proposal_id"]
-            isOneToOne: false
-            referencedRelation: "governance_proposals"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      rwa_assets: {
-        Row: {
-          created_at: string
-          document_type: string | null
-          document_url: string | null
-          id: string
-          notes: string | null
-          reviewed_at: string | null
-          status: string | null
-          token_id: string | null
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          document_type?: string | null
-          document_url?: string | null
-          id?: string
-          notes?: string | null
-          reviewed_at?: string | null
-          status?: string | null
-          token_id?: string | null
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          document_type?: string | null
-          document_url?: string | null
-          id?: string
-          notes?: string | null
-          reviewed_at?: string | null
-          status?: string | null
-          token_id?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "rwa_assets_token_id_fkey"
-            columns: ["token_id"]
-            isOneToOne: false
-            referencedRelation: "tokens"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      tokens: {
-        Row: {
-          created_at: string
-          description: string | null
-          id: string
-          name: string
-          quantity: number
-          status: string | null
-          symbol: string
-          token_type: string
-          transaction_hash: string | null
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          name: string
-          quantity: number
-          status?: string | null
-          symbol: string
-          token_type: string
-          transaction_hash?: string | null
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          name?: string
-          quantity?: number
-          status?: string | null
-          symbol?: string
-          token_type?: string
-          transaction_hash?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
-      user_roles: {
-        Row: {
-          id: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
-        Insert: {
-          id?: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
-        Update: {
-          id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id?: string
+          update_at?: string
+          wallet_address?: string
         }
         Relationships: []
       }
@@ -303,16 +46,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
+      [_ in never]: never
     }
     Enums: {
-      app_role: "admin" | "emissor" | "investidor"
+      [_ in never]: never
     }
     CompositeTypes: {
       [_ in never]: never
@@ -439,8 +176,6 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {
-      app_role: ["admin", "emissor", "investidor"],
-    },
+    Enums: {},
   },
 } as const
