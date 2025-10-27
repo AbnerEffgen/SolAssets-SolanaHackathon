@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation, Navigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,27 +9,20 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useWallet } from '@solana/wallet-adapter-react';
 
-interface NewProfileInsert {
-    wallet_address: string;
-    full_name: string;
-    email: string;
-}
-
 const CreateProfile = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const { connected, publicKey } = useWallet();
   const [isLoading, setIsLoading] = useState(false);
-
-  const walletAddress = location.state?.walletAddress as string | undefined;
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!walletAddress || !connected || !publicKey || publicKey.toBase58() !== walletAddress) {
-      console.warn("CreateProfile: Condição inválida. Redirecionando para /auth.", { walletAddress, connected, publicKey: publicKey?.toBase58() });
+    if (!connected || !publicKey) {
       toast.error("Por favor, conecte sua carteira primeiro.");
       navigate("/auth", { replace: true });
+    } else {
+      setWalletAddress(publicKey.toBase58());
     }
-  }, [connected, publicKey, walletAddress, navigate]);
+  }, [connected, publicKey, navigate]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -39,53 +32,34 @@ const CreateProfile = () => {
     const fullName = formData.get("fullName") as string;
     const email = formData.get("email") as string;
 
-    if (!walletAddress) {
-      toast.error("Endereço da carteira não encontrado. Tente conectar novamente.");
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user || !publicKey) { 
+      toast.error("Usuário ou carteira não encontrados. Redirecionando...");
+      navigate('/auth');
       setIsLoading(false);
-      navigate("/auth");
       return;
     }
 
-    const newProfileData: NewProfileInsert = {
-        wallet_address: walletAddress,
+    const { error } = await supabase
+      .from('profiles')
+      .insert({
+        id: user.id, 
         full_name: fullName,
         email: email,
-    };
+        wallet_address: publicKey.toBase58() 
+      });
 
-    try {
-        console.log("Tentando criar perfil:", newProfileData);
-      const { error } = await supabase
-        .from('profiles')
-        .insert(newProfileData as any); 
-
-      if (error) {
-        if (error.code === '23505') {
-             if (error.message.includes('profiles_wallet_address_key')) {
-                 toast.error("Este endereço de carteira já possui um perfil. Tentando redirecionar...");
-                 navigate('/dashboard');
-             } else if (error.message.includes('profiles_email_key')) {
-                 toast.error("Este email já está associado a outro perfil.");
-             } else {
-                 toast.error("Já existe um perfil com estas informações.");
-             }
-        } else {
-            console.error("Erro Supabase:", error);
-            throw new Error(error.message);
-        }
-      } else {
-        console.log("Perfil criado com sucesso para:", walletAddress);
-        toast.success("Perfil criado com sucesso! Bem-vindo!");
-        navigate("/dashboard");
-      }
-    } catch (err: any) {
-      console.error("Erro ao criar perfil no Supabase:", err);
-      toast.error(`Erro ao criar perfil: ${err.message}`);
-    } finally {
-      setIsLoading(false);
+    if (error) {
+      console.error("Erro ao criar perfil:", error);
+      toast.error(`Erro ao salvar perfil: ${error.message}`);
+    } else {
+      toast.success("Perfil salvo com sucesso! Bem-vindo!");
+      navigate("/dashboard");
     }
+    setIsLoading(false);
   };
 
-  if (!walletAddress || !connected || !publicKey || publicKey.toBase58() !== walletAddress) {
+  if (!walletAddress) {
      return (
         <div className="min-h-screen bg-gradient-hero flex items-center justify-center p-4">
             <p className="text-white animate-pulse">Verificando conexão...</p>
@@ -114,7 +88,6 @@ const CreateProfile = () => {
               <Label htmlFor="walletAddress">Endereço da Carteira</Label>
               <Input
                 id="walletAddress"
-                name="walletAddress"
                 type="text"
                 value={walletAddress}
                 className="bg-background/30 text-muted-foreground cursor-not-allowed"

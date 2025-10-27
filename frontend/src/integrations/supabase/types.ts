@@ -18,28 +18,161 @@ export type Database = {
         Row: {
           created_at: string
           email: string | null
-          full_name: string
+          full_name: string | null
           id: string
-          update_at: string
+          updated_at: string
           wallet_address: string
         }
         Insert: {
           created_at?: string
           email?: string | null
-          full_name: string
+          full_name?: string | null
           id?: string
-          update_at?: string
+          updated_at?: string
           wallet_address: string
         }
         Update: {
           created_at?: string
           email?: string | null
-          full_name?: string
+          full_name?: string | null
           id?: string
-          update_at?: string
+          updated_at?: string
           wallet_address?: string
         }
         Relationships: []
+      }
+      rwa_assets: {
+        Row: {
+          created_at: string
+          description: string | null
+          document_requirements: string | null
+          id: string
+          location: string | null
+          name: string
+          owner_wallet: string | null
+          rejection_reason: string | null
+          status: string
+          token_code: string
+          updated_at: string
+          valuation: number | null
+          yield_rate: number | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          document_requirements?: string | null
+          id?: string
+          location?: string | null
+          name: string
+          owner_wallet?: string | null
+          rejection_reason?: string | null
+          status: string
+          token_code: string
+          updated_at?: string
+          valuation?: number | null
+          yield_rate?: number | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          document_requirements?: string | null
+          id?: string
+          location?: string | null
+          name?: string
+          owner_wallet?: string | null
+          rejection_reason?: string | null
+          status?: string
+          token_code?: string
+          updated_at?: string
+          valuation?: number | null
+          yield_rate?: number | null
+        }
+        Relationships: []
+      }
+      rwa_documents: {
+        Row: {
+          asset_id: string
+          id: string
+          name: string
+          reviewer_notes: string | null
+          status: string
+          submitted_at: string
+          url: string | null
+        }
+        Insert: {
+          asset_id: string
+          id?: string
+          name: string
+          reviewer_notes?: string | null
+          status: string
+          submitted_at?: string
+          url?: string | null
+        }
+        Update: {
+          asset_id?: string
+          id?: string
+          name?: string
+          reviewer_notes?: string | null
+          status?: string
+          submitted_at?: string
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rwa_documents_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "rwa_assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tokens: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          profile_id: string
+          quantity: number
+          status: Database["public"]["Enums"]["token_status"]
+          tag: string
+          transaction_hash: string | null
+          type: Database["public"]["Enums"]["token_type"]
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          profile_id: string
+          quantity: number
+          status?: Database["public"]["Enums"]["token_status"]
+          tag: string
+          transaction_hash?: string | null
+          type: Database["public"]["Enums"]["token_type"]
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          profile_id?: string
+          quantity?: number
+          status?: Database["public"]["Enums"]["token_status"]
+          tag?: string
+          transaction_hash?: string | null
+          type?: Database["public"]["Enums"]["token_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tokens_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -49,7 +182,8 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      token_status: "Ativo" | "Pendente" | "Falhou"
+      token_type: "Fungível" | "Não-fungível"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -176,6 +310,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      token_status: ["Ativo", "Pendente", "Falhou"],
+      token_type: ["Fungível", "Não-fungível"],
+    },
   },
 } as const

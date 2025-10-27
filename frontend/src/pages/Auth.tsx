@@ -6,57 +6,68 @@ import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { SolanaWallet } from '@supabase/auth-js/dist/module/lib/types';
 
 const Auth = () => {
   const navigate = useNavigate();
-  const { connected, publicKey, connecting, disconnecting } = useWallet();
-  const [isCheckingProfile, setIsCheckingProfile] = useState(false);
+  const { connected, publicKey, connecting, wallet } = useWallet();
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
 
   useEffect(() => {
-    if (connected && publicKey && !isCheckingProfile) {
-      setIsCheckingProfile(true);
-      console.log("Carteira conectada:", publicKey.toBase58(), "Verificando perfil...");
-      const loadingToastId = toast.loading("Verificando perfil...");
+    const handleAuth = async () => {
+      if (connected && publicKey && wallet && !isAuthenticating) {
+        setIsAuthenticating(true);
+        const loadingToastId = toast.loading("Aguardando assinatura da carteira...");
 
-      const checkProfile = async () => {
         try {
-          // A consulta continua a mesma
-          const { data, error, status } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('wallet_address', publicKey.toBase58())
-            .maybeSingle();
+          // 1. Autentica com a carteira
+          const { error: signInError } = await supabase.auth.signInWithWeb3({
+            chain: 'solana',
+            statement: 'Bem-vindo ao SolAssets! Assine para continuar.',
+            wallet: wallet.adapter as SolanaWallet,
+          });
 
-          if (error && status !== 406) {
-             console.error("Erro Supabase:", error);
-             throw new Error(error.message);
-          }
+          if (signInError) throw signInError;
 
-          if (data) {
-            console.log("Perfil encontrado, redirecionando para /dashboard");
-            toast.success("Bem-vindo de volta!", { id: loadingToastId });
-            navigate("/dashboard");
+          const { data: { user } } = await supabase.auth.getUser();
+
+          if (user) {
+            
+            const { data: profile, error: profileError } = await supabase
+              .from('profiles')
+              .select('full_name') // Só precisamos saber se o nome existe
+              .eq('id', user.id)
+              .single();
+
+            if (profileError && profileError.code !== 'PGRST116') {
+              throw profileError;
+            }
+
+            if (profile && profile.full_name) {
+              toast.success("Autenticado com sucesso!", { id: loadingToastId });
+              navigate("/dashboard");
+            } else {
+              toast.info("Complete seu perfil para continuar.", { id: loadingToastId });
+              navigate("/create-profile");
+            }
           } else {
-            console.log("Perfil não encontrado, redirecionando para /create-profile");
-            toast.info("Parece que é sua primeira vez aqui. Complete seu perfil.", { id: loadingToastId });
-            navigate("/create-profile", { state: { walletAddress: publicKey.toBase58() } });
+             throw new Error("Usuário não encontrado após o login.");
           }
         } catch (err: any) {
-          console.error("Erro ao verificar perfil no Supabase:", err);
-          toast.error(`Erro ao verificar perfil: ${err.message}`, { id: loadingToastId });
-          setIsCheckingProfile(false);
+          console.error("Erro durante a autenticação Web3:", err);
+          if (err.message.includes("User rejected the request")) {
+            toast.error("Você cancelou a assinatura.", { id: loadingToastId });
+          } else {
+            toast.error(`Falha na autenticação: ${err.message}`, { id: loadingToastId });
+          }
+        } finally {
+            setIsAuthenticating(false);
         }
-      };
+      }
+    };
 
-      checkProfile();
-    } else if (!connected && !connecting && !disconnecting) {
-        if (isCheckingProfile) {
-             setIsCheckingProfile(false);
-             toast.dismiss();
-        }
-    }
-
-  }, [connected, publicKey, navigate, isCheckingProfile, connecting, disconnecting]);
+    handleAuth();
+  }, [connected, publicKey, wallet, isAuthenticating, navigate]);
 
   return (
     <div className="min-h-screen bg-gradient-hero flex items-center justify-center p-4">
@@ -76,12 +87,12 @@ const Auth = () => {
 
           <WalletMultiButton style={{ width: '100%', height: '48px', fontSize: '16px', borderRadius: 'var(--radius)' }} />
 
-          { (connecting || isCheckingProfile) &&
+          { (connecting || isAuthenticating) &&
             <p className="text-sm text-muted-foreground mt-4 animate-pulse">
-                {connecting ? "Conectando carteira..." : "Verificando perfil..."}
+                {connecting ? "Conectando carteira..." : "Aguardando assinatura..."}
             </p>
           }
-           { !connecting && !isCheckingProfile &&
+           { !connecting && !isAuthenticating &&
             <p className="text-center text-sm text-muted-foreground mt-4">
                 Suportamos Phantom, Solflare, Backpack e mais.
             </p>
