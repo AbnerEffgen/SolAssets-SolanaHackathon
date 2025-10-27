@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -49,16 +48,14 @@ import {
   ExternalLink,
   Wallet,
 } from "lucide-react";
-import type {
-  AssetStatus,
-  RwaAsset,
-  CreateRwaAssetInput,
-  UpdateRwaAssetStatusInput,
-} from "@/integrations/supabase/rwa";
 import {
-  createRwaAsset,
   fetchRwaAssets,
+  createRwaAsset,
   updateRwaAssetStatus,
+  type AssetStatus,
+  type RwaAsset,
+  type CreateRwaAssetInput,
+  type UpdateRwaAssetStatusInput,
 } from "@/integrations/supabase/rwa";
 
 type FilterValue = "all" | AssetStatus;
@@ -184,67 +181,44 @@ const RWA = () => {
 
   const trimmedReason = rejectionReason.trim();
 
-  const queryClient = useQueryClient();
+  const [assets, setAssets] = useState<RwaAsset[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isSavingAsset, setIsSavingAsset] = useState(false);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: formDefaultValues,
   });
 
-  const {
-    data: assets = [],
-    isLoading,
-    isFetching,
-    error,
-    refetch,
-  } = useQuery<RwaAsset[]>({
-    queryKey: ["rwa-assets"],
-    queryFn: fetchRwaAssets,
-    refetchOnWindowFocus: false,
-  });
+  const loadAssets = useCallback(async (isInitial = false) => {
+    if (isInitial) {
+      setIsLoading(true);
+    } else {
+      setIsRefreshing(true);
+    }
 
-  const createAssetMutation = useMutation({
-    mutationFn: (payload: CreateRwaAssetInput) => createRwaAsset(payload),
-    onSuccess: (createdAsset) => {
-      queryClient.setQueryData<RwaAsset[]>(["rwa-assets"], (previous) =>
-        previous ? [createdAsset, ...previous] : [createdAsset],
-      );
-      toast.success("Ativo cadastrado com sucesso!");
-      setIsCreateOpen(false);
-      form.reset(formDefaultValues);
-    },
-    onError: (mutationError) => {
+    try {
+      const fetchedAssets = await fetchRwaAssets();
+      setAssets(fetchedAssets);
+      setLoadError(null);
+    } catch (err) {
       const message =
-        mutationError instanceof Error
-          ? mutationError.message
-          : "Erro desconhecido ao cadastrar o ativo.";
-      toast.error("Não foi possível cadastrar o ativo.", {
-        description: message,
-      });
-    },
-  });
+        err instanceof Error ? err.message : "Erro inesperado ao carregar os ativos.";
+      setLoadError(message);
+    } finally {
+      if (isInitial) {
+        setIsLoading(false);
+      }
+      setIsRefreshing(false);
+    }
+  }, []);
 
-  const updateStatusMutation = useMutation({
-    mutationFn: (payload: UpdateRwaAssetStatusInput) => updateRwaAssetStatus(payload),
-    onSuccess: (updatedAsset) => {
-      queryClient.setQueryData<RwaAsset[]>(["rwa-assets"], (previous) =>
-        previous
-          ? previous.map((asset) => (asset.id === updatedAsset.id ? updatedAsset : asset))
-          : previous,
-      );
-      setSelectedAsset(updatedAsset);
-      toast.success("Status atualizado com sucesso!");
-    },
-    onError: (mutationError) => {
-      const message =
-        mutationError instanceof Error
-          ? mutationError.message
-          : "Erro desconhecido ao atualizar o status.";
-      toast.error("Não foi possível atualizar o status.", {
-        description: message,
-      });
-    },
-  });
+  useEffect(() => {
+    loadAssets(true);
+  }, [loadAssets]);
 
   useEffect(() => {
     if (selectedAsset) {
@@ -346,14 +320,24 @@ const RWA = () => {
       owner_wallet: values.ownerWallet?.trim() ? values.ownerWallet.trim() : null,
     };
 
+    setIsSavingAsset(true);
     try {
-      await createAssetMutation.mutateAsync(payload);
-    } catch (mutationError) {
-      console.error("Erro ao criar ativo RWA:", mutationError);
+      const createdAsset = await createRwaAsset(payload);
+      setAssets((previous) => [createdAsset, ...previous]);
+      toast.success("Ativo cadastrado com sucesso!");
+      setIsCreateOpen(false);
+      form.reset(formDefaultValues);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Erro ao cadastrar o ativo.";
+      toast.error("Não foi possível cadastrar o ativo.", {
+        description: message,
+      });
+    } finally {
+      setIsSavingAsset(false);
     }
   };
 
-  const handleStatusSave = () => {
+  const handleStatusSave = async () => {
     if (!selectedAsset) {
       return;
     }
@@ -369,7 +353,23 @@ const RWA = () => {
       rejection_reason: statusDraft === "Rejeitado" ? trimmedReason : null,
     };
 
-    updateStatusMutation.mutate(payload);
+    setIsUpdatingStatus(true);
+    try {
+      const updatedAsset = await updateRwaAssetStatus(payload);
+      setAssets((previous) =>
+        previous.map((asset) => (asset.id === updatedAsset.id ? updatedAsset : asset)),
+      );
+      setSelectedAsset(updatedAsset);
+      toast.success("Status atualizado com sucesso!");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Erro ao atualizar o status.";
+      toast.error("Não foi possível atualizar o status.", {
+        description: message,
+      });
+    } finally {
+      setIsUpdatingStatus(false);
+    }
   };
 
   return (
@@ -559,12 +559,12 @@ const RWA = () => {
                   type="button"
                   variant="ghost"
                   onClick={() => handleCreateDialogChange(false)}
-                  disabled={createAssetMutation.isPending}
+                  disabled={isSavingAsset}
                 >
                   Cancelar
                 </Button>
-                <Button type="submit" variant="hero" disabled={createAssetMutation.isPending}>
-                  {createAssetMutation.isPending ? "Salvando..." : "Cadastrar ativo"}
+                <Button type="submit" variant="hero" disabled={isSavingAsset}>
+                  {isSavingAsset ? "Salvando..." : "Cadastrar ativo"}
                 </Button>
               </DialogFooter>
             </form>
@@ -739,7 +739,7 @@ const RWA = () => {
                 <Button
                   variant="outline"
                   onClick={() => setSelectedAsset(null)}
-                  disabled={updateStatusMutation.isPending}
+                  disabled={isUpdatingStatus}
                 >
                   Fechar
                 </Button>
@@ -748,12 +748,12 @@ const RWA = () => {
                   onClick={handleStatusSave}
                   disabled={
                     !selectedAsset ||
-                    updateStatusMutation.isPending ||
+                    isUpdatingStatus ||
                     !hasStatusChanges ||
                     (statusDraft === "Rejeitado" && trimmedReason.length < 3)
                   }
                 >
-                  {updateStatusMutation.isPending ? "Salvando..." : "Salvar alterações"}
+                  {isUpdatingStatus ? "Salvando..." : "Salvar alterações"}
                 </Button>
               </DialogFooter>
             </>
@@ -824,25 +824,23 @@ const RWA = () => {
                 onChange={(event) => setSearchTerm(event.target.value)}
                 className="pl-10 bg-background/60"
               />
-              {isFetching && (
+              {isRefreshing && (
                 <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
               )}
             </div>
           </div>
         </Card>
 
-        {error && (
+        {loadError && (
           <Card className="p-6 border-destructive/40 bg-destructive/10">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
                 <h3 className="text-lg font-semibold text-destructive">
                   Não foi possível carregar os ativos
                 </h3>
-                <p className="text-sm text-destructive/80">
-                  {error instanceof Error ? error.message : "Erro desconhecido."}
-                </p>
+                <p className="text-sm text-destructive/80">{loadError}</p>
               </div>
-              <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
+              <Button variant="outline" onClick={() => loadAssets()} disabled={isRefreshing}>
                 Tentar novamente
               </Button>
             </div>
@@ -878,7 +876,7 @@ const RWA = () => {
                 key={asset.id}
                 className="p-6 bg-card/50 backdrop-blur-sm border-border hover:border-primary transition-all duration-300"
               >
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                   <div className="flex-1 space-y-3">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
                       <h3 className="text-xl font-semibold">{asset.asset_name}</h3>
