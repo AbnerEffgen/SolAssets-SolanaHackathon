@@ -251,7 +251,7 @@ const RWA = () => {
       const matchesStatus = statusFilter === "all" ? true : asset.status === statusFilter;
       const matchesSearch =
         normalizedSearch.length === 0 ||
-        asset.asset_name.toLowerCase().includes(normalizedSearch) ||
+        asset.name.toLowerCase().includes(normalizedSearch) ||
         asset.token_code.toLowerCase().includes(normalizedSearch);
 
       return matchesStatus && matchesSearch;
@@ -307,7 +307,7 @@ const RWA = () => {
 
   const handleCreateSubmit = async (values: FormValues) => {
     const payload: CreateRwaAssetInput = {
-      asset_name: values.name.trim(),
+      name: values.name.trim(),
       token_code: values.tokenCode.trim().toUpperCase(),
       status: values.status,
       location: values.location?.trim() ? values.location.trim() : null,
@@ -577,7 +577,7 @@ const RWA = () => {
           {selectedAsset && (
             <>
               <DialogHeader>
-                <DialogTitle>{selectedAsset.asset_name}</DialogTitle>
+                <DialogTitle>{selectedAsset.name}</DialogTitle>
                 <DialogDescription>
                   Acompanhe a documentação e atualize o status desse ativo real.
                 </DialogDescription>
@@ -879,7 +879,7 @@ const RWA = () => {
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                   <div className="flex-1 space-y-3">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                      <h3 className="text-xl font-semibold">{asset.asset_name}</h3>
+                      <h3 className="text-xl font-semibold">{asset.name}</h3>
                       <code className="bg-muted px-2 py-1 rounded text-sm">{asset.token_code}</code>
                     </div>
 

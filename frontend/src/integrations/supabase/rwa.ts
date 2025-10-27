@@ -1,5 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { getSupabaseClient } from "@/integrations/supabase/client";
+import {supabase} from "@/integrations/supabase/client";
 
 export type AssetStatus = "Pendente" | "Em Análise" | "Aprovado" | "Rejeitado";
 
@@ -15,7 +14,7 @@ export interface RwaDocument {
 
 export interface RwaAsset {
   id: string;
-  asset_name: string;
+  name: string;
   token_code: string;
   status: AssetStatus;
   location: string | null;
@@ -31,7 +30,7 @@ export interface RwaAsset {
 }
 
 export interface CreateRwaAssetInput {
-  asset_name: string;
+  name: string;
   token_code: string;
   status?: AssetStatus;
   location?: string | null;
@@ -101,7 +100,7 @@ const mapDocumentRow = (row: any): RwaDocument => ({
 
 const mapAssetRow = (row: any, documents: RwaDocument[] = []): RwaAsset => ({
   id: row.id,
-  asset_name: extractAssetName(row),
+  name: extractAssetName(row),
   token_code: row.token_code,
   status: (row.status as AssetStatus) ?? "Pendente",
   location: row.location ?? null,
@@ -116,24 +115,18 @@ const mapAssetRow = (row: any, documents: RwaDocument[] = []): RwaAsset => ({
   documents,
 });
 
-const getSupabaseAny = () => getSupabaseClient() as unknown as SupabaseClient<any>;
-
 export const fetchRwaAssets = async (): Promise<RwaAsset[]> => {
-  const supabase = getSupabaseAny();
 
   console.log("[fetchRwaAssets] Fetching all assets");
 
-  const { data: assets, error } = await supabase
-    .from("rwa_assets")
-    .select("*")
-    .order("created_at", { ascending: false });
+  const { data: rwa_assets, error } = await supabase.from('rwa_assets').select('*')
 
   if (error) {
     console.error("[fetchRwaAssets] Error:", error);
     throw error;
   }
 
-  const assetRows = assets ?? [];
+  const assetRows = rwa_assets ?? [];
 
   console.log("[fetchRwaAssets] Success, found", assetRows.length, "assets");
 
@@ -168,7 +161,7 @@ const normalizeInsertPayload = (
   column: AssetNameColumn,
   payload: CreateRwaAssetInput,
 ) => ({
-  [column]: payload.asset_name,
+  [column]: payload.name,
   token_code: payload.token_code,
   status: payload.status ?? "Pendente",
   location: payload.location ?? null,
@@ -180,7 +173,6 @@ const normalizeInsertPayload = (
 });
 
 export const createRwaAsset = async (payload: CreateRwaAssetInput): Promise<RwaAsset> => {
-  const supabase = getSupabaseAny();
 
   const attemptInsert = async (column: AssetNameColumn) => {
     const insertPayload = normalizeInsertPayload(column, payload);
@@ -232,7 +224,6 @@ export const updateRwaAssetStatus = async ({
   status,
   rejection_reason = null,
 }: UpdateRwaAssetStatusInput): Promise<RwaAsset> => {
-  const supabase = getSupabaseAny();
 
   console.log("[updateRwaAssetStatus] Updating asset:", assetId, "to", status);
 
