@@ -8,6 +8,7 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import {
   Keypair,
   PublicKey,
+  SendTransactionError,
   SystemProgram,
   SYSVAR_RENT_PUBKEY,
 } from "@solana/web3.js";
@@ -530,11 +531,8 @@ const RWA = () => {
       ASSOCIATED_TOKEN_PROGRAM_ID,
     );
 
-    setIsTokenizing(true);
-
-    let transactionSignature: string;
-    try {
-      transactionSignature = await program.methods
+    const buildMethod = () =>
+      program.methods
         .createRwaToken({
           name: assetToTokenize.name,
           symbol: assetToTokenize.token_code,
@@ -554,12 +552,59 @@ const RWA = () => {
           systemProgram: SystemProgram.programId,
           rent: SYSVAR_RENT_PUBKEY,
         })
-        .signers([mintKeypair])
-        .rpc();
+        .signers([mintKeypair]);
+
+    console.debug(
+      "[tokenizeRwa] mint",
+      mintKeypair.publicKey.toBase58(),
+      "destination",
+      destination.toBase58(),
+      "tokenRecord",
+      tokenRecord.toBase58(),
+    );
+
+    setIsTokenizing(true);
+
+    let transactionSignature: string;
+    try {
+      transactionSignature = await buildMethod().rpc();
     } catch (error) {
       console.error("Erro ao tokenizar ativo RWA:", error);
+
+      let description = describeError(error);
+      if (error instanceof SendTransactionError) {
+        try {
+          const logs = await error.getLogs(program.provider.connection);
+          console.error("Logs da transação:", logs);
+          const programLog = logs.find((log) => log.startsWith("Program log:"));
+          if (programLog) {
+            description = `${description}\n${programLog}`;
+          }
+          if (!logs.length) {
+            try {
+              const simulation = await buildMethod().simulate();
+              const simulationLogs = simulation.value.logs ?? [];
+              const simulationError = simulation.value.err
+                ? JSON.stringify(simulation.value.err)
+                : null;
+              console.error("Simulação manual - logs:", simulationLogs);
+              if (simulationError) {
+                console.error("Simulação manual - erro:", simulationError);
+                description = `${description}\nSimulation error: ${simulationError}`;
+              } else if (simulationLogs.length) {
+                description = `${description}\nSimulation logs:\n${simulationLogs.join("\n")}`;
+              }
+            } catch (simulationError) {
+              console.error("Simulação manual falhou:", simulationError);
+            }
+          }
+        } catch (logError) {
+          console.error("Não foi possível obter os logs da transação:", logError);
+        }
+      }
+
       toast.error("Falha ao executar a transação on-chain.", {
-        description: describeError(error),
+        description,
       });
       setIsTokenizing(false);
       return;
