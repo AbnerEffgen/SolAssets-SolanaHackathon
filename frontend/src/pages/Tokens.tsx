@@ -11,6 +11,21 @@ import { Plus, CheckCircle2, Clock, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/integrations/supabase/types";
+import { BN } from "@coral-xyz/anchor";
+import { useWallet } from "@solana/wallet-adapter-react";
+import {
+  Keypair,
+  PublicKey,
+  SystemProgram,
+  SYSVAR_RENT_PUBKEY,
+} from "@solana/web3.js";
+import {
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
+  getAssociatedTokenAddressSync,
+} from "@solana/spl-token";
+import { useHackaProgram } from "@/hooks/useHackaProgram";
+import { TOKEN_RECORD_SEED, EXPLORER_BASE_URL, describeError } from "@/lib/solana";
 
 type Token = Database['public']['Tables']['tokens']['Row'];
 type NewToken = Database['public']['Tables']['tokens']['Insert'];
@@ -21,6 +36,8 @@ const Tokens = () => {
   const [isLoadingTokens, setIsLoadingTokens] = useState(true);
   const [profileId, setProfileId] = useState<string | null>(null);
   const [tokenType, setTokenType] = useState<NewToken['type'] | "">("");
+  const { publicKey, connected } = useWallet();
+  const program = useHackaProgram();
 
   // Buscar o perfil do usuário e seus tokens
   useEffect(() => {
@@ -47,9 +64,9 @@ const Tokens = () => {
         }
 
         setExistingTokens(tokensData || []);
-      } catch (error: any) {
+      } catch (error) {
         console.error("Erro ao buscar dados:", error);
-        toast.error("Erro ao carregar seus tokens.", { description: error.message });
+        toast.error("Erro ao carregar seus tokens.", { description: describeError(error) });
       } finally {
         setIsLoadingTokens(false);
       }
@@ -62,31 +79,139 @@ const Tokens = () => {
   const handleCreateToken = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!profileId) {
-        toast.error("Perfil de usuário não encontrado. Não é possível criar o token.");
-        return;
+      toast.error("Perfil de usuário não encontrado. Não é possível criar o token.");
+      return;
     }
     if (!tokenType) {
-        toast.error("Por favor, selecione um tipo de token.");
-        return;
+      toast.error("Por favor, selecione um tipo de token.");
+      return;
+    }
+    if (!connected || !publicKey) {
+      toast.error("Conecte sua carteira para emitir tokens on-chain.");
+      return;
+    }
+    if (!program) {
+      toast.error("Não foi possível inicializar o programa Anchor. Recarregue a página e tente novamente.");
+      return;
+    }
+
+    const formData = new FormData(e.currentTarget);
+
+    const name = (formData.get("token-name") as string)?.trim();
+    const symbol = (formData.get("token-tag") as string)?.trim();
+    const description = (formData.get("token-description") as string)?.trim() || "";
+    const rawUri = formData.get("token-uri");
+    const metadataUri = typeof rawUri === "string" ? rawUri.trim() : "";
+    const quantityRaw = (formData.get("token-quantity") as string)?.trim();
+
+    if (!name || !symbol) {
+      toast.error("Informe nome e tag do token.");
+      setIsCreating(false);
+      return;
+    }
+
+    if (!quantityRaw) {
+      toast.error("Informe a quantidade inicial de tokens.");
+      setIsCreating(false);
+      return;
+    }
+
+    let quantityBigInt: bigint;
+    try {
+      quantityBigInt = BigInt(quantityRaw);
+    } catch (error) {
+      toast.error("Quantidade inválida. Informe um número inteiro.");
+      setIsCreating(false);
+      return;
+    }
+
+    if (quantityBigInt <= 0n) {
+      toast.error("A quantidade inicial deve ser maior que zero.");
+      setIsCreating(false);
+      return;
+    }
+
+    if (tokenType === "Não-fungível" && quantityBigInt !== 1n) {
+      toast.error("Tokens não-fungíveis devem ter quantidade igual a 1.");
+      setIsCreating(false);
+      return;
+    }
+
+    if (metadataUri.length > 200) {
+      toast.error("A URI de metadata deve ter no máximo 200 caracteres.");
+      setIsCreating(false);
+      return;
+    }
+
+    const maxSafeSupply = BigInt(Number.MAX_SAFE_INTEGER);
+    if (quantityBigInt > maxSafeSupply) {
+      toast.error("Quantidade muito alta. Utilize um valor até 9.007.199.254.740.991.");
+      setIsCreating(false);
+      return;
     }
 
     setIsCreating(true);
-    const formData = new FormData(e.currentTarget);
 
-  
-    const tokenData: NewToken = {
-      profile_id: profileId,
-      name: formData.get("token-name") as string,
-      tag: formData.get("token-tag") as string,
-      type: tokenType,
-      quantity: Number(formData.get("token-quantity")),
-      description: formData.get("token-description") as string,
-      status: 'Pendente',
-    };
+    const mintKeypair = Keypair.generate();
+
+    const [tokenRecord] = PublicKey.findProgramAddressSync(
+      [TOKEN_RECORD_SEED, mintKeypair.publicKey.toBuffer()],
+      program.programId,
+    );
+
+    const destination = getAssociatedTokenAddressSync(
+      mintKeypair.publicKey,
+      publicKey,
+      false,
+      TOKEN_PROGRAM_ID,
+      ASSOCIATED_TOKEN_PROGRAM_ID,
+    );
+
+    let transactionSignature: string;
+    try {
+      const method = program.methods.createStandardToken({
+        name,
+        symbol,
+        uri: metadataUri,
+        initialSupply: new BN(quantityBigInt.toString()),
+      });
+
+      transactionSignature = await method
+        .accounts({
+          authority: publicKey,
+          tokenRecord,
+          mint: mintKeypair.publicKey,
+          destination,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+          systemProgram: SystemProgram.programId,
+          rent: SYSVAR_RENT_PUBKEY,
+        })
+        .signers([mintKeypair])
+        .rpc();
+    } catch (error) {
+      console.error("Erro ao executar transação on-chain:", error);
+      toast.error("Falha ao executar a transação on-chain.", {
+        description: describeError(error),
+      });
+      setIsCreating(false);
+      return;
+    }
 
     try {
+      const tokenData: NewToken = {
+        profile_id: profileId,
+        name,
+        tag: symbol,
+        type: tokenType,
+        quantity: Number(quantityBigInt),
+        description,
+        status: "Ativo",
+        transaction_hash: transactionSignature,
+      };
+
       const { data, error } = await supabase
-        .from('tokens')
+        .from("tokens")
         .insert(tokenData)
         .select()
         .single();
@@ -94,12 +219,16 @@ const Tokens = () => {
       if (error) throw error;
 
       toast.success("Token emitido com sucesso!", {
-        description: `O token "${data.name}" está pendente de validação.`
+        description: `Explorer: ${EXPLORER_BASE_URL}/tx/${transactionSignature}?cluster=devnet`,
       });
-      setExistingTokens(prev => [data, ...prev]);
-    } catch (error: any) {
-      console.error("Erro ao criar token:", error);
-      toast.error("Falha ao emitir o token.", { description: error.message });
+      setExistingTokens((prev) => [data, ...prev]);
+      e.currentTarget.reset();
+      setTokenType("");
+    } catch (error) {
+      console.error("Erro ao salvar token no Supabase:", error);
+      toast.warning("Token criado on-chain, mas não foi salvo no Supabase.", {
+        description: `${describeError(error)}. Guarde a transação: ${transactionSignature}`,
+      });
     } finally {
       setIsCreating(false);
     }
@@ -116,7 +245,7 @@ const Tokens = () => {
           
           <Dialog>
             <DialogTrigger asChild>
-              <Button variant="hero" disabled={!profileId}>
+              <Button variant="hero" disabled={!profileId || !connected || !program}>
                 <Plus className="mr-2" />
                 Emitir Token
               </Button>
@@ -185,18 +314,41 @@ const Tokens = () => {
                   />
                 </div>
 
+                <div className="space-y-2">
+                  <Label htmlFor="token-uri">Metadata URI</Label>
+                  <Input
+                    id="token-uri"
+                    name="token-uri"
+                    type="url"
+                    placeholder="https://..."
+                    className="bg-background/50"
+                    maxLength={200}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Opcional. Informe a URL do metadata (Arweave/IPFS). Máx. 200 caracteres.
+                  </p>
+                </div>
+
                 <Button 
                   type="submit" 
                   className="w-full" 
                   variant="hero"
-                  disabled={isCreating || !profileId}
+                  disabled={isCreating || !profileId || !connected || !program}
                 >
-                  {isCreating ? "Emitindo..." : "Emitir Token"}
+                  {isCreating ? "Emitindo no blockchain..." : "Emitir Token"}
                 </Button>
               </form>
             </DialogContent>
           </Dialog>
         </div>
+
+        {!connected && (
+          <Card className="p-4 border-dashed border-primary/40 bg-card/40">
+            <p className="text-muted-foreground text-sm">
+              Conecte uma carteira Solana suportada para emitir tokens no blockchain.
+            </p>
+          </Card>
+        )}
 
         <Card className="p-6 bg-card/50 backdrop-blur-sm border-border">
           <h3 className="text-xl font-semibold mb-4">Tokens Criados</h3>
@@ -210,14 +362,15 @@ const Tokens = () => {
                   <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Quantidade</th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Data</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Transação</th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {isLoadingTokens ? (
-                    <tr><td colSpan={7} className="text-center py-8">Carregando tokens...</td></tr>
+                    <tr><td colSpan={8} className="text-center py-8">Carregando tokens...</td></tr>
                 ) : existingTokens.length === 0 ? (
-                    <tr><td colSpan={7} className="text-center py-8 text-muted-foreground">Nenhum token encontrado.</td></tr>
+                    <tr><td colSpan={8} className="text-center py-8 text-muted-foreground">Nenhum token encontrado.</td></tr>
                 ) : (
                     existingTokens.map((token) => (
                     <tr key={token.id} className="border-b border-border last:border-0 hover:bg-muted/50 transition-colors">
@@ -248,8 +401,30 @@ const Tokens = () => {
                         </div>
                         </td>
                         <td className="py-4 px-4 text-sm text-muted-foreground">{new Date(token.created_at).toLocaleDateString()}</td>
+                        <td className="py-4 px-4 text-sm">
+                          {token.transaction_hash ? (
+                            <code className="bg-muted px-2 py-1 rounded">
+                              {token.transaction_hash.slice(0, 8)}&hellip;
+                            </code>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
                         <td className="py-4 px-4">
-                        <Button variant="ghost" size="sm">Ver detalhes</Button>
+                          <div className="flex items-center gap-2">
+                            {token.transaction_hash && (
+                              <Button variant="outline" size="sm" asChild>
+                                <a
+                                  href={`${EXPLORER_BASE_URL}/tx/${token.transaction_hash}?cluster=devnet`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  Explorer
+                                </a>
+                              </Button>
+                            )}
+                            <Button variant="ghost" size="sm">Ver detalhes</Button>
+                          </div>
                         </td>
                     </tr>
                     ))

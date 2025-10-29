@@ -3,10 +3,24 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
+import { BN } from "@coral-xyz/anchor";
+import { useWallet } from "@solana/wallet-adapter-react";
+import {
+  Keypair,
+  PublicKey,
+  SystemProgram,
+  SYSVAR_RENT_PUBKEY,
+} from "@solana/web3.js";
+import {
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
+  getAssociatedTokenAddressSync,
+} from "@solana/spl-token";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
@@ -57,6 +71,17 @@ import {
   type CreateRwaAssetInput,
   type UpdateRwaAssetStatusInput,
 } from "@/integrations/supabase/rwa";
+import { supabase } from "@/integrations/supabase/client";
+import { useHackaProgram } from "@/hooks/useHackaProgram";
+import {
+  TOKEN_RECORD_SEED,
+  EXPLORER_BASE_URL,
+  describeError,
+  parseAmountToBaseUnits,
+  convertCurrencyToMinorUnits,
+  toBasisPoints,
+} from "@/lib/solana";
+import type { Database } from "@/integrations/supabase/types";
 
 type FilterValue = "all" | AssetStatus;
 
@@ -100,6 +125,9 @@ const formDefaultValues: FormValues = {
   documentRequirements: "",
   ownerWallet: "",
 };
+
+const RWA_TOKEN_DECIMALS = 6;
+const MAX_METADATA_URI = 200;
 
 const numberFormatter = new Intl.NumberFormat("pt-BR");
 
@@ -187,11 +215,40 @@ const RWA = () => {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isSavingAsset, setIsSavingAsset] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const { publicKey, connected } = useWallet();
+  const program = useHackaProgram();
+  const [profileId, setProfileId] = useState<string | null>(null);
+  const [assetToTokenize, setAssetToTokenize] = useState<RwaAsset | null>(null);
+  const [isTokenizeOpen, setIsTokenizeOpen] = useState(false);
+  const [tokenizeSupply, setTokenizeSupply] = useState("");
+  const [tokenizeMetadataUri, setTokenizeMetadataUri] = useState("");
+  const [isTokenizing, setIsTokenizing] = useState(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: formDefaultValues,
   });
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (user) {
+          setProfileId(user.id);
+        }
+      } catch (error) {
+        console.error("Erro ao carregar perfil do usuário:", error);
+        toast.error("Não foi possível carregar seu perfil.", {
+          description: describeError(error),
+        });
+      }
+    };
+
+    fetchProfile();
+  }, []);
 
   const loadAssets = useCallback(async (isInitial = false) => {
     if (isInitial) {
@@ -372,8 +429,310 @@ const RWA = () => {
     }
   };
 
+  const resetTokenizeState = () => {
+    setAssetToTokenize(null);
+    setTokenizeSupply("");
+    setTokenizeMetadataUri("");
+    setIsTokenizing(false);
+  };
+
+  const handleTokenizeDialogChange = (open: boolean) => {
+    setIsTokenizeOpen(open);
+    if (!open) {
+      resetTokenizeState();
+    }
+  };
+
+  const handleOpenTokenize = (asset: RwaAsset) => {
+    setAssetToTokenize(asset);
+    setTokenizeSupply(
+      asset.valuation !== null && asset.valuation !== undefined
+        ? String(asset.valuation)
+        : "",
+    );
+    setTokenizeMetadataUri("");
+    setIsTokenizeOpen(true);
+  };
+
+  const handleTokenizeAsset = async () => {
+    if (!assetToTokenize) {
+      toast.error("Selecione um ativo para tokenizar.");
+      return;
+    }
+
+    if (assetToTokenize.owner_wallet) {
+      toast.error("Este ativo já foi tokenizado.");
+      return;
+    }
+
+    if (!connected || !publicKey) {
+      toast.error("Conecte sua carteira para tokenizar o ativo.");
+      return;
+    }
+
+    if (!program) {
+      toast.error("Não foi possível inicializar o programa Anchor. Recarregue a página e tente novamente.");
+      return;
+    }
+
+    if (!profileId) {
+      toast.error("Seu perfil não foi carregado. Faça login novamente.");
+      return;
+    }
+
+    let initialSupplyBase: bigint;
+    try {
+      initialSupplyBase = parseAmountToBaseUnits(
+        tokenizeSupply,
+        RWA_TOKEN_DECIMALS,
+      );
+    } catch (error) {
+      toast.error("Quantidade inválida.", {
+        description: describeError(error),
+      });
+      return;
+    }
+
+    if (!Number.isFinite(Number(initialSupplyBase)) || Number(initialSupplyBase) > Number.MAX_SAFE_INTEGER) {
+      toast.error("Quantidade muito alta para registro off-chain.");
+      return;
+    }
+
+    const metadataUri = tokenizeMetadataUri.trim();
+    if (metadataUri.length > MAX_METADATA_URI) {
+      toast.error(`A metadata URI deve ter no máximo ${MAX_METADATA_URI} caracteres.`);
+      return;
+    }
+
+    let valuationMinorUnits: bigint;
+    let yieldBps: number;
+    try {
+      valuationMinorUnits = convertCurrencyToMinorUnits(assetToTokenize.valuation);
+      yieldBps = toBasisPoints(assetToTokenize.yield_rate);
+    } catch (error) {
+      toast.error("Dados financeiros inválidos.", {
+        description: describeError(error),
+      });
+      return;
+    }
+
+    const mintKeypair = Keypair.generate();
+    const [tokenRecord] = PublicKey.findProgramAddressSync(
+      [TOKEN_RECORD_SEED, mintKeypair.publicKey.toBuffer()],
+      program.programId,
+    );
+
+    const destination = getAssociatedTokenAddressSync(
+      mintKeypair.publicKey,
+      publicKey,
+      false,
+      TOKEN_PROGRAM_ID,
+      ASSOCIATED_TOKEN_PROGRAM_ID,
+    );
+
+    setIsTokenizing(true);
+
+    let transactionSignature: string;
+    try {
+      transactionSignature = await program.methods
+        .createRwaToken({
+          name: assetToTokenize.name,
+          symbol: assetToTokenize.token_code,
+          uri: metadataUri,
+          initialSupply: new BN(initialSupplyBase.toString()),
+          assetId: assetToTokenize.id,
+          valuation: new BN(valuationMinorUnits.toString()),
+          yieldBps,
+        })
+        .accounts({
+          authority: publicKey,
+          tokenRecord,
+          mint: mintKeypair.publicKey,
+          destination,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+          systemProgram: SystemProgram.programId,
+          rent: SYSVAR_RENT_PUBKEY,
+        })
+        .signers([mintKeypair])
+        .rpc();
+    } catch (error) {
+      console.error("Erro ao tokenizar ativo RWA:", error);
+      toast.error("Falha ao executar a transação on-chain.", {
+        description: describeError(error),
+      });
+      setIsTokenizing(false);
+      return;
+    }
+
+    try {
+      const quantityNumber = Number(initialSupplyBase);
+      if (!Number.isFinite(quantityNumber) || quantityNumber > Number.MAX_SAFE_INTEGER) {
+        throw new Error("Quantidade excede o limite suportado para registro.");
+      }
+
+      const tokenInsert: Database["public"]["Tables"]["tokens"]["Insert"] = {
+        profile_id: profileId,
+        name: assetToTokenize.name,
+        tag: assetToTokenize.token_code,
+        type: "Fungível",
+        quantity: quantityNumber,
+        description: assetToTokenize.description ?? "",
+        status: "Ativo",
+        transaction_hash: transactionSignature,
+      };
+
+      const { error: insertError } = await supabase.from("tokens").insert(tokenInsert);
+      if (insertError) {
+        throw insertError;
+      }
+
+      const ownerWallet = publicKey.toBase58();
+      const { error: updateError } = await supabase
+        .from("rwa_assets")
+        .update({ owner_wallet: ownerWallet })
+        .eq("id", assetToTokenize.id);
+
+      if (updateError) {
+        console.warn("Não foi possível atualizar o proprietário do ativo no Supabase:", updateError);
+      }
+
+      setAssets((previous) =>
+        previous.map((asset) =>
+          asset.id === assetToTokenize.id
+            ? { ...asset, owner_wallet: ownerWallet }
+            : asset,
+        ),
+      );
+
+      if (selectedAsset?.id === assetToTokenize.id) {
+        setSelectedAsset({
+          ...selectedAsset,
+          owner_wallet: ownerWallet,
+        });
+      }
+
+      toast.success("Ativo tokenizado com sucesso!", {
+        description: `Explorer: ${EXPLORER_BASE_URL}/tx/${transactionSignature}?cluster=devnet`,
+      });
+    } catch (error) {
+      console.error("Erro ao registrar tokenização no Supabase:", error);
+      toast.warning("Token criado on-chain, mas não foi registrado no Supabase.", {
+        description: describeError(error),
+      });
+    } finally {
+      setIsTokenizing(false);
+      handleTokenizeDialogChange(false);
+      void loadAssets();
+    }
+  };
+
   return (
     <DashboardLayout>
+      <Dialog open={isTokenizeOpen} onOpenChange={handleTokenizeDialogChange}>
+        <DialogContent className="max-w-lg">
+          {assetToTokenize && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Tokenizar ativo</DialogTitle>
+                <DialogDescription>
+                  Emita o token on-chain para <strong>{assetToTokenize.name}</strong>.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4">
+                <Card className="p-4 border-border/80 bg-card/60">
+                  <div className="space-y-2 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <Wallet className="h-4 w-4" />
+                      <span>
+                        Carteira emissora:{" "}
+                        {publicKey ? publicKey.toBase58() : "Conecte sua carteira"}
+                      </span>
+                    </div>
+                    {assetToTokenize.valuation !== null && (
+                      <div className="flex items-center gap-2">
+                        <Coins className="h-4 w-4" />
+                        <span>
+                          Valuation estimado: R${" "}
+                          {numberFormatter.format(assetToTokenize.valuation)}
+                        </span>
+                      </div>
+                    )}
+                    {assetToTokenize.yield_rate !== null && (
+                      <div className="flex items-center gap-2">
+                        <BadgePercent className="h-4 w-4" />
+                        <span>
+                          Yield esperado: {assetToTokenize.yield_rate.toFixed(2)}% a.a.
+                        </span>
+                      </div>
+                    )}
+                    {assetToTokenize.owner_wallet && (
+                      <div className="flex items-center gap-2 text-secondary">
+                        <CheckCircle2 className="h-4 w-4" />
+                        <span>Já tokenizado por {assetToTokenize.owner_wallet}</span>
+                      </div>
+                    )}
+                  </div>
+                </Card>
+
+                <div className="space-y-2">
+                  <Label>Quantidade inicial (unidades mínimas)</Label>
+                  <Input
+                    value={tokenizeSupply}
+                    onChange={(event) => setTokenizeSupply(event.target.value)}
+                    placeholder="1000000"
+                    type="text"
+                    className="bg-background/60"
+                    inputMode="decimal"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Os tokens RWA usam {RWA_TOKEN_DECIMALS} casas decimais. Informe a quantidade em unidades mínimas.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Metadata URI (opcional)</Label>
+                  <Input
+                    value={tokenizeMetadataUri}
+                    onChange={(event) => setTokenizeMetadataUri(event.target.value)}
+                    placeholder="https://..."
+                    type="url"
+                    className="bg-background/60"
+                    maxLength={MAX_METADATA_URI}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Máximo de {MAX_METADATA_URI} caracteres. Utilize uma URL IPFS/Arweave com os metadados do ativo.
+                  </p>
+                </div>
+              </div>
+
+              <DialogFooter className="gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => handleTokenizeDialogChange(false)}
+                  disabled={isTokenizing}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  variant="hero"
+                  onClick={handleTokenizeAsset}
+                  disabled={
+                    isTokenizing ||
+                    !connected ||
+                    !program ||
+                    Boolean(assetToTokenize.owner_wallet)
+                  }
+                >
+                  {isTokenizing ? "Tokenizando..." : "Confirmar tokenização"}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={isCreateOpen} onOpenChange={handleCreateDialogChange}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -743,6 +1102,15 @@ const RWA = () => {
                 >
                   Fechar
                 </Button>
+                {selectedAsset?.status === "Aprovado" && !selectedAsset.owner_wallet && (
+                  <Button
+                    variant="gold"
+                    onClick={() => selectedAsset && handleOpenTokenize(selectedAsset)}
+                    disabled={!connected || !program || isTokenizing}
+                  >
+                    Tokenizar ativo
+                  </Button>
+                )}
                 <Button
                   variant="hero"
                   onClick={handleStatusSave}
@@ -797,6 +1165,14 @@ const RWA = () => {
             </Card>
           ))}
         </div>
+
+        {!connected && (
+          <Card className="p-4 border-dashed border-primary/40 bg-card/40">
+            <p className="text-sm text-muted-foreground">
+              Conecte sua carteira Solana para emitir tokens RWA diretamente no blockchain.
+            </p>
+          </Card>
+        )}
 
         <Card className="p-4 md:p-6 bg-card/60 border-border/80 backdrop-blur">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -906,18 +1282,35 @@ const RWA = () => {
                     </div>
                   </div>
 
-                  <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
                     <div className="flex items-center gap-2">
                       {getStatusIcon(asset.status)}
                       <span className={cn("font-medium", getStatusColor(asset.status))}>
                         {asset.status}
                       </span>
                     </div>
+                    {asset.status === "Aprovado" && !asset.owner_wallet && (
+                      <Button
+                        variant="hero"
+                        size="sm"
+                        onClick={() => handleOpenTokenize(asset)}
+                        disabled={!connected || !program || isTokenizing}
+                      >
+                        Tokenizar
+                      </Button>
+                    )}
                     <Button variant="outline" size="sm" onClick={() => setSelectedAsset(asset)}>
                       Ver detalhes
                     </Button>
                   </div>
                 </div>
+
+                {asset.owner_wallet && (
+                  <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
+                    <Wallet className="h-4 w-4" />
+                    <span>Tokenizado para {asset.owner_wallet}</span>
+                  </div>
+                )}
 
                 {asset.status === "Rejeitado" && asset.rejection_reason && (
                   <div className="mt-4 p-4 bg-destructive/10 border border-destructive/20 rounded-lg">

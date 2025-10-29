@@ -98,14 +98,31 @@ const mapDocumentRow = (row: any): RwaDocument => ({
   reviewer_notes: row.reviewer_notes ?? null,
 });
 
+const parseNullableNumber = (value: unknown): number | null => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value.replace(",", "."));
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+};
+
 const mapAssetRow = (row: any, documents: RwaDocument[] = []): RwaAsset => ({
   id: row.id,
   name: extractAssetName(row),
   token_code: row.token_code,
   status: (row.status as AssetStatus) ?? "Pendente",
   location: row.location ?? null,
-  valuation: row.valuation ?? null,
-  yield_rate: row.yield_rate ?? null,
+  valuation: parseNullableNumber(row.valuation),
+  yield_rate: parseNullableNumber(row.yield_rate),
   description: row.description ?? null,
   document_requirements: row.document_requirements ?? null,
   owner_wallet: row.owner_wallet ?? null,

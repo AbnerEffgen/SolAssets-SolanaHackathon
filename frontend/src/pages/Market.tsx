@@ -1,10 +1,38 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import { useWallet, useConnection } from "@solana/wallet-adapter-react";
+import { PublicKey, Transaction, TransactionInstruction } from "@solana/web3.js";
+import {
+  getAssociatedTokenAddress,
+  createAssociatedTokenAccountInstruction,
+  createTransferCheckedInstruction,
+  getMint,
+  TOKEN_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+} from "@solana/spl-token";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ExternalLink, TrendingUp, TrendingDown, AlertCircle, CheckCircle2, Clock } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  ExternalLink,
+  TrendingUp,
+  TrendingDown,
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+import { parseAmountToBaseUnits, describeError, EXPLORER_BASE_URL } from "@/lib/solana";
 
 interface Token {
   id: string;
@@ -23,6 +51,142 @@ interface Token {
 const Market = () => {
   const [tokens, setTokens] = useState<Token[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isOrderOpen, setIsOrderOpen] = useState(false);
+  const [mintAddress, setMintAddress] = useState("");
+  const [recipientAddress, setRecipientAddress] = useState("");
+  const [transferAmount, setTransferAmount] = useState("");
+  const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+  const [lastSignature, setLastSignature] = useState<string | null>(null);
+  const { publicKey, sendTransaction, connected } = useWallet();
+  const { connection } = useConnection();
+
+  const resetOrderForm = () => {
+    setMintAddress("");
+    setRecipientAddress("");
+    setTransferAmount("");
+  };
+
+  const handleOrderDialogChange = (open: boolean) => {
+    setIsOrderOpen(open);
+    if (!open) {
+      resetOrderForm();
+      setIsSubmittingOrder(false);
+    }
+  };
+
+  const handleSubmitOrder = async () => {
+    if (!connected || !publicKey) {
+      toast.error("Conecte sua carteira para criar ordens P2P.");
+      return;
+    }
+
+    if (!mintAddress.trim() || !recipientAddress.trim() || !transferAmount.trim()) {
+      toast.error("Preencha todas as informações da ordem.");
+      return;
+    }
+
+    let mint: PublicKey;
+    let recipient: PublicKey;
+
+    try {
+      mint = new PublicKey(mintAddress.trim());
+      recipient = new PublicKey(recipientAddress.trim());
+    } catch (error) {
+      toast.error("Endereço inválido.", {
+        description: "Verifique o mint e a carteira de destino informados.",
+      });
+      return;
+    }
+
+    if (recipient.equals(publicKey)) {
+      toast.error("Informe uma carteira de destino diferente da sua.");
+      return;
+    }
+
+    setIsSubmittingOrder(true);
+
+    try {
+      const mintInfo = await getMint(connection, mint, "confirmed");
+      const amountBase = parseAmountToBaseUnits(transferAmount, mintInfo.decimals);
+
+      const amountNumber = Number(amountBase);
+      if (!Number.isFinite(amountNumber) || amountNumber <= 0) {
+        throw new Error("Quantidade inválida para transferência.");
+      }
+
+      if (amountNumber > Number.MAX_SAFE_INTEGER) {
+        throw new Error("Quantidade muito alta para ser processada.");
+      }
+
+      const sourceAta = await getAssociatedTokenAddress(
+        mint,
+        publicKey,
+        false,
+        TOKEN_PROGRAM_ID,
+        ASSOCIATED_TOKEN_PROGRAM_ID,
+      );
+      const destinationAta = await getAssociatedTokenAddress(
+        mint,
+        recipient,
+        false,
+        TOKEN_PROGRAM_ID,
+        ASSOCIATED_TOKEN_PROGRAM_ID,
+      );
+
+      const senderAccount = await connection.getAccountInfo(sourceAta, "confirmed");
+      if (!senderAccount) {
+        throw new Error("Conta de origem não encontrada. Confirme se você possui esse token.");
+      }
+
+      const instructions: TransactionInstruction[] = [];
+      const destinationAccount = await connection.getAccountInfo(destinationAta, "confirmed");
+      if (!destinationAccount) {
+        instructions.push(
+          createAssociatedTokenAccountInstruction(
+            publicKey,
+            destinationAta,
+            recipient,
+            mint,
+            TOKEN_PROGRAM_ID,
+            ASSOCIATED_TOKEN_PROGRAM_ID,
+          ),
+        );
+      }
+
+      instructions.push(
+        createTransferCheckedInstruction(
+          sourceAta,
+          mint,
+          destinationAta,
+          publicKey,
+          amountNumber,
+          mintInfo.decimals,
+        ),
+      );
+
+      const transaction = new Transaction().add(...instructions);
+      transaction.feePayer = publicKey;
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
+      transaction.recentBlockhash = blockhash;
+
+      const signature = await sendTransaction(transaction, connection);
+
+      await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, "confirmed");
+
+      setLastSignature(signature);
+      toast.success("Transferência P2P enviada!", {
+        description: `Explorer: ${EXPLORER_BASE_URL}/tx/${signature}?cluster=devnet`,
+      });
+      handleOrderDialogChange(false);
+    } catch (error) {
+      console.error("Erro ao criar ordem P2P:", error);
+      toast.error("Falha ao enviar a transação.", {
+        description: describeError(error),
+      });
+    } finally {
+      setIsSubmittingOrder(false);
+    }
+  };
 
   useEffect(() => {
     const fetchMarketTokens = async () => {
@@ -48,10 +212,10 @@ const Market = () => {
 
         if (error) throw error;
 
-        setTokens(data as Token[]);
-      } catch (error: any) {
+        setTokens((data ?? []) as Token[]);
+      } catch (error) {
         console.error("Erro ao buscar tokens do mercado:", error);
-        toast.error("Falha ao carregar o mercado.", { description: error.message });
+        toast.error("Falha ao carregar o mercado.", { description: describeError(error) });
       } finally {
         setIsLoading(false);
       }
@@ -63,17 +227,112 @@ const Market = () => {
 
   return (
     <DashboardLayout>
+      <Dialog open={isOrderOpen} onOpenChange={handleOrderDialogChange}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Criar ordem P2P</DialogTitle>
+            <DialogDescription>
+              Defina o token, a carteira de destino e a quantidade para transferir direto na blockchain.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="mint-address">Mint address do token</Label>
+              <Input
+                id="mint-address"
+                placeholder="Ex: 4Nd1m..."
+                value={mintAddress}
+                onChange={(event) => setMintAddress(event.target.value)}
+                className="bg-background/60"
+              />
+              <p className="text-xs text-muted-foreground">
+                Utilize o endereço do mint do token que deseja negociar.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="recipient-address">Carteira do destinatário</Label>
+              <Input
+                id="recipient-address"
+                placeholder="Wallet do comprador"
+                value={recipientAddress}
+                onChange={(event) => setRecipientAddress(event.target.value)}
+                className="bg-background/60"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="order-amount">Quantidade</Label>
+              <Input
+                id="order-amount"
+                placeholder="Ex: 1000.5"
+                value={transferAmount}
+                onChange={(event) => setTransferAmount(event.target.value)}
+                className="bg-background/60"
+                inputMode="decimal"
+              />
+              <p className="text-xs text-muted-foreground">
+                Valores com ponto decimal são convertidos conforme os decimais do mint.
+              </p>
+            </div>
+            {publicKey && (
+              <div className="rounded-lg border border-border/60 bg-muted/10 p-3 text-xs text-muted-foreground break-all">
+                Carteira emissora: {publicKey.toBase58()}
+              </div>
+            )}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => handleOrderDialogChange(false)}
+              disabled={isSubmittingOrder}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="hero"
+              onClick={handleSubmitOrder}
+              disabled={isSubmittingOrder || !connected}
+            >
+              {isSubmittingOrder ? "Enviando..." : "Enviar ordem"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-3xl font-bold mb-2">Mercado de Tokens</h2>
             <p className="text-muted-foreground">Explore todos os tokens criados na plataforma</p>
           </div>
-          
-          <Button variant="hero">
+          <Button
+            variant="hero"
+            onClick={() => handleOrderDialogChange(true)}
+            disabled={!connected}
+          >
             Criar Ordem de Negociação
           </Button>
         </div>
+
+        {!connected && (
+          <Card className="p-4 border-dashed border-primary/40 bg-card/40 text-sm text-muted-foreground">
+            Conecte sua carteira para negociar tokens P2P.
+          </Card>
+        )}
+
+        {lastSignature && (
+          <Card className="p-4 bg-card/40 border-border/70 text-sm">
+            <div className="flex flex-col gap-1">
+              <span className="font-medium">Última transferência enviada</span>
+              <a
+                href={`${EXPLORER_BASE_URL}/tx/${lastSignature}?cluster=devnet`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline break-all"
+              >
+                {lastSignature}
+              </a>
+            </div>
+          </Card>
+        )}
 
         <div className="grid gap-6 md:grid-cols-3">
           {/* ... cards de estatísticas ... */}
@@ -135,11 +394,16 @@ const Market = () => {
                             )}
                         </div>
                       </td>
-                      <td className="py-4 px-4 text-sm text-muted-foreground" title={token.profiles?.wallet_address}>
+                      <td className="py-4 px-4 text-sm text-muted-foreground" title={token.profiles?.wallet_address ?? undefined}>
                         {token.profiles?.full_name || 'Desconhecido'}
                       </td>
                       <td className="py-4 px-4">
-                        <Button variant="ghost" size="sm">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleOrderDialogChange(true)}
+                          disabled={!connected}
+                        >
                           Negociar
                         </Button>
                       </td>
