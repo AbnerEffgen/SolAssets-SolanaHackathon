@@ -39,6 +39,11 @@ import {
   RwaAsset,
 } from "@/integrations/supabase/types";
 
+// 1. Define a new type for display purposes
+type DisplayProposal = Omit<ProposalWithVotes, 'status'> & {
+  status: 'Active' | 'Closed' | 'Approved' | 'Rejected';
+};
+
 const getFutureDate = (days: number): string => {
   const date = new Date();
   date.setDate(date.getDate() + days);
@@ -46,7 +51,7 @@ const getFutureDate = (days: number): string => {
 };
 
 const Governance = () => {
-  const [proposals, setProposals] = useState<ProposalWithVotes[]>([]);
+  const [proposals, setProposals] = useState<DisplayProposal[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isOwner, setIsOwner] = useState(false);
   const [ownedAssets, setOwnedAssets] = useState<RwaAsset[]>([]);
@@ -59,7 +64,7 @@ const Governance = () => {
     title: "",
     description: "",
     deadlineDays: 7,
-    asset_id: "none", 
+    asset_id: "none",
   });
 
   const { publicKey } = useWallet();
@@ -67,7 +72,7 @@ const Governance = () => {
 
   const fetchProfileAndOwnership = useCallback(async () => {
     if (!publicKey) {
-      toast.error("Por favor, conecte sua carteira.");
+      toast.error("Please connect your wallet.");
       return;
     }
 
@@ -81,7 +86,7 @@ const Governance = () => {
 
     if (profileError || !profileData) {
       toast.warning(
-        "Você precisa criar um perfil para participar da governança."
+        "You need to create a profile to participate in governance."
       );
       navigate("/create-profile");
       return;
@@ -94,12 +99,12 @@ const Governance = () => {
       .eq("owner_wallet", walletAddress);
 
     if (ownerError) {
-      console.error("Erro ao verificar posse de RWA:", ownerError);
+      console.error("Error checking RWA ownership:", ownerError);
     }
 
     if (assetsData && assetsData.length > 0) {
       setIsOwner(true);
-      setOwnedAssets(assetsData); 
+      setOwnedAssets(assetsData);
     }
   }, [publicKey, navigate]);
 
@@ -112,7 +117,7 @@ const Governance = () => {
       .order("created_at", { ascending: false });
 
     if (proposalsError) {
-      toast.error("Erro ao buscar propostas.");
+      toast.error("Error fetching proposals.");
       console.error(proposalsError);
       setLoading(false);
       return;
@@ -123,13 +128,13 @@ const Governance = () => {
       .select("*");
 
     if (votesError) {
-      toast.error("Erro ao buscar votos.");
+      toast.error("Error fetching votes.");
       console.error(votesError);
       setLoading(false);
       return;
     }
 
-    const proposalsWithVotes: ProposalWithVotes[] = (
+    const proposalsWithVotes: DisplayProposal[] = ( // Ensure the mapped array matches the new type
       proposalsData as any[]
     ).map((proposal) => {
       const proposalVotes = votesData.filter(
@@ -145,8 +150,18 @@ const Governance = () => {
 
       const userVote = userVoteRecord ? userVoteRecord.vote : null;
 
+      const isExpired = new Date(proposal.deadline) < new Date();
+      const currentStatusInPortuguese = isExpired && proposal.status === 'Ativa' ? 'Encerrada' : proposal.status;
+
+      let displayStatus: DisplayProposal['status'] = 'Closed';
+      if (currentStatusInPortuguese === 'Ativa') displayStatus = 'Active';
+      else if (currentStatusInPortuguese === 'Encerrada') displayStatus = 'Closed';
+      else if (currentStatusInPortuguese === 'Aprovada') displayStatus = 'Approved';
+      else if (currentStatusInPortuguese === 'Rejeitada') displayStatus = 'Rejected';
+
       return {
         ...proposal,
+        status: displayStatus,
         votesYes,
         votesNo,
         userVote,
@@ -155,7 +170,7 @@ const Governance = () => {
 
     setProposals(proposalsWithVotes);
     setLoading(false);
-  }, [profile]); 
+  }, [profile]);
 
   useEffect(() => {
     if (publicKey) {
@@ -172,13 +187,13 @@ const Governance = () => {
   const handleCreateProposal = async (e: FormEvent) => {
     e.preventDefault();
     if (!profile) {
-      toast.error("Perfil não encontrado.");
+      toast.error("Profile not found.");
       return;
     }
 
     const { title, description, deadlineDays, asset_id } = formState;
     if (!title || !description || deadlineDays <= 0) {
-      toast.error("Por favor, preencha todos os campos.");
+      toast.error("Please fill all fields.");
       return;
     }
 
@@ -189,15 +204,15 @@ const Governance = () => {
       description,
       deadline,
       creator_id: profile.id,
-      status: "Ativa",
+      status: "Ativa", // Send status in Portuguese
       asset_id: asset_id === "none" ? null : asset_id,
     });
 
     if (error) {
-      toast.error("Erro ao criar proposta.");
+      toast.error("Error creating proposal.");
       console.error(error);
     } else {
-      toast.success("Proposta criada com sucesso!");
+      toast.success("Proposal created successfully!");
       setDialogOpen(false);
       setFormState({
         title: "",
@@ -205,13 +220,13 @@ const Governance = () => {
         deadlineDays: 7,
         asset_id: "none",
       });
-      fetchProposals(); 
+      fetchProposals();
     }
   };
 
   const handleVote = async (proposalId: string, vote: boolean) => {
     if (!profile) {
-      toast.error("Você precisa de um perfil para votar.");
+      toast.error("You need a profile to vote.");
       return;
     }
 
@@ -233,11 +248,11 @@ const Governance = () => {
     setVoting({ ...voting, [proposalId]: false });
 
     if (error) {
-      toast.error("Erro ao registrar voto.");
+      toast.error("Error registering vote.");
       console.error(error);
     } else {
-      toast.success("Voto registrado com sucesso!");
-      fetchProposals(); 
+      toast.success("Vote registered successfully!");
+      fetchProposals();
     }
   };
 
@@ -257,9 +272,9 @@ const Governance = () => {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-3xl font-bold mb-2">Governança</h2>
+            <h2 className="text-3xl font-bold mb-2">Governance</h2>
             <p className="text-muted-foreground">
-              Vote nas propostas e participe das decisões
+              Vote on proposals and participate in decisions
             </p>
           </div>
 
@@ -268,13 +283,13 @@ const Governance = () => {
               <DialogTrigger asChild>
                 <Button variant="hero">
                   <Plus className="mr-2" />
-                  Nova Proposta
+                  New Proposal
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-2xl bg-card border-border">
                 <DialogHeader>
                   <DialogTitle className="text-2xl">
-                    Criar Nova Proposta
+                    Create New Proposal
                   </DialogTitle>
                 </DialogHeader>
                 <form
@@ -282,17 +297,17 @@ const Governance = () => {
                   onSubmit={handleCreateProposal}
                 >
                   <div className="space-y-2">
-                    <Label htmlFor="asset_id">Referente ao Ativo (Token)</Label>
+                    <Label htmlFor="asset_id">Related Asset (Token)</Label>
                     <Select
                       value={formState.asset_id}
                       onValueChange={handleSelectChange}
                     >
                       <SelectTrigger className="w-full bg-background/50">
-                        <SelectValue placeholder="Selecione um ativo..." />
+                        <SelectValue placeholder="Select an asset..." />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">
-                          Proposta Geral (Nenhum)
+                          General Proposal (None)
                         </SelectItem>
                         {ownedAssets.map((asset) => (
                           <SelectItem key={asset.id} value={asset.id}>
@@ -304,10 +319,10 @@ const Governance = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="title">Título da Proposta</Label>
+                    <Label htmlFor="title">Proposal Title</Label>
                     <Input
                       id="title"
-                      placeholder="Ex: Distribuição de Dividendos"
+                      placeholder="E.g., Dividend Distribution"
                       className="bg-background/50"
                       value={formState.title}
                       onChange={handleFormChange}
@@ -315,10 +330,10 @@ const Governance = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="description">Descrição</Label>
+                    <Label htmlFor="description">Description</Label>
                     <Textarea
                       id="description"
-                      placeholder="Descreva detalhadamente a proposta"
+                      placeholder="Describe the proposal in detail"
                       className="bg-background/50 min-h-32"
                       value={formState.description}
                       onChange={handleFormChange}
@@ -327,7 +342,7 @@ const Governance = () => {
 
                   <div className="space-y-2">
                     <Label htmlFor="deadlineDays">
-                      Prazo de Votação (dias)
+                      Voting Period (days)
                     </Label>
                     <Input
                       id="deadlineDays"
@@ -340,7 +355,7 @@ const Governance = () => {
                   </div>
 
                   <Button type="submit" className="w-full" variant="hero">
-                    Criar Proposta
+                    Create Proposal
                   </Button>
                 </form>
               </DialogContent>
@@ -363,13 +378,7 @@ const Governance = () => {
 
               const isVoting = voting[proposal.id];
               const hasVoted = proposal.userVote !== null;
-
               const deadlineDate = new Date(proposal.deadline);
-              const isExpired = deadlineDate < new Date();
-              const status =
-                isExpired && proposal.status === "Ativa"
-                  ? "Encerrada"
-                  : proposal.status;
 
               return (
                 <Card
@@ -388,15 +397,15 @@ const Governance = () => {
                           {proposal.title}
                         </h3>
 
-                        {status === "Ativa" ? (
+                        {proposal.status === "Active" ? (
                           <span className="flex items-center gap-1 text-sm text-gold">
                             <Clock className="w-4 h-4" />
-                            {status}
+                            {proposal.status}
                           </span>
                         ) : (
                           <span className="flex items-center gap-1 text-sm text-secondary">
                             <CheckCircle2 className="w-4 h-4" />
-                            {status}
+                            {proposal.status}
                           </span>
                         )}
                       </div>
@@ -404,8 +413,8 @@ const Governance = () => {
                         {proposal.description}
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        Encerra em:{" "}
-                        {deadlineDate.toLocaleDateString("pt-BR")}
+                        Closes on:{" "}
+                        {deadlineDate.toLocaleDateString("en-US")}
                       </p>
                     </div>
                   </div>
@@ -414,7 +423,7 @@ const Governance = () => {
                     <div className="space-y-2">
                       <div className="flex items-center justify-between text-sm">
                         <span className="flex items-center gap-1">
-                          <ThumbsUp className="w-4 h-4 text-secondary" />A favor
+                          <ThumbsUp className="w-4 h-4 text-secondary" />For
                         </span>
                         <span className="font-medium">
                           {yesPercentage.toFixed(0)}% ({proposal.votesYes})
@@ -426,7 +435,7 @@ const Governance = () => {
                       <div className="flex items-center justify-between text-sm">
                         <span className="flex items-center gap-1">
                           <ThumbsDown className="w-4 h-4 text-destructive" />
-                          Contra
+                          Against
                         </span>
                         <span className="font-medium">
                           {noPercentage.toFixed(0)}% ({proposal.votesNo})
@@ -435,7 +444,7 @@ const Governance = () => {
                     </div>
                   </div>
 
-                  {status === "Ativa" && (
+                  {proposal.status === "Active" && (
                     <div className="flex gap-3 mt-6">
                       <Button
                         variant={
@@ -453,8 +462,8 @@ const Governance = () => {
                           <ThumbsUp className="mr-2 h-4 w-4" />
                         )}
                         {hasVoted && proposal.userVote === true
-                          ? "Votado"
-                          : "Votar a Favor"}
+                          ? "Voted"
+                          : "Vote For"}
                       </Button>
                       <Button
                         variant={
@@ -472,8 +481,8 @@ const Governance = () => {
                           <ThumbsDown className="mr-2 h-4 w-4" />
                         )}
                         {hasVoted && proposal.userVote === false
-                          ? "Votado"
-                          : "Votar Contra"}
+                          ? "Voted"
+                          : "Vote Against"}
                       </Button>
                     </div>
                   )}
