@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import tailwindcssAnimate from "tailwindcss-animate";
 
 export default {
   darkMode: ["class"],
@@ -132,5 +133,18 @@ export default {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  tailwindcssAnimate,
+  function({ addComponents }: { addComponents: any }) {
+    addComponents({
+      '.btn-hero': {
+        'background-image': 'var(--gradient-primary)',
+        'color': 'hsl(var(--primary-foreground))',
+        'transition': 'all 0.3s ease-in-out',
+        '&:hover': {
+          'box-shadow': 'var(--shadow-glow)',
+          'transform': 'translateY(-2px)',
+        },
+      },
+    });
+  },
 } satisfies Config;

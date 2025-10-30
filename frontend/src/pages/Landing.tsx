@@ -34,7 +34,7 @@ const Landing = () => {
         blur={5}
       />
       {/* Header */}
-      <header className="fixed top-0 w-full z-50 backdrop-blur-md bg-background/80 border-b border-border">
+      <header className="fixed top-0 w-full z-50 backdrop-blur-md bg-black border-b border-neutral-800">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <img src={logo} alt="SolAssets Logo" className="h-10" />
           <nav className="hidden md:flex items-center gap-6">
@@ -45,7 +45,7 @@ const Landing = () => {
               How it works
             </a>
             <Link to="/auth">
-              <Button variant="outline">Sign In</Button>
+              <Button variant="hero">Sign In</Button>
             </Link>
           </nav>
         </div>
@@ -135,12 +135,12 @@ const Landing = () => {
           </div>
           <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
             {[
-              { step: "01", title: "Connect your wallet", description: "Phantom, Solflare, or Backpack" },
-              { step: "02", title: "Create your token", description: "Configure and issue in minutes" },
-              { step: "03", title: "Manage and trade", description: "Full dashboard and P2P marketplace" }
+              { step: "#1", title: "Connect your wallet", description: "Phantom, Solflare, or Backpack" },
+              { step: "#2", title: "Create your token", description: "Configure and issue in minutes" },
+              { step: "#3", title: "Manage and trade", description: "Full dashboard and P2P marketplace" }
             ].map((item, index) => (
               <div key={index} className="text-center">
-                <div className="text-6xl font-bold text-primary/20 mb-4">{item.step}</div>
+                <div className="text-6xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-4">{item.step}</div>
                 <h4 className="text-xl font-semibold mb-2">{item.title}</h4>
                 <p className="text-muted-foreground">{item.description}</p>
               </div>
