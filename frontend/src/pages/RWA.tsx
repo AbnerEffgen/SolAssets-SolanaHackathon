@@ -833,6 +833,7 @@ const RWA = () => {
         onOpenChange={setIsCreateOpen}
         onSubmit={handleCreateSubmit}
         isSubmitting={isSavingAsset}
+        ownerWallet={publicKey ? publicKey.toBase58() : null}
       />
 
       <RwaDetailsDialog

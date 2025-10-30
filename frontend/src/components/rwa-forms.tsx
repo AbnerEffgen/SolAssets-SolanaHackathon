@@ -31,8 +31,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Trash2 } from "lucide-react";
 import { FileUpload } from "./file-upload";
+import { Wallet } from "lucide-react";
 
 const assetStatusOptions = ["Pendente", "Em Análise", "Aprovado", "Rejeitado"] as const;
 
@@ -50,12 +50,11 @@ const formSchema = z.object({
   yieldRate: z.string().optional(),
   description: z.string().max(500, "Máximo de 500 caracteres.").optional(),
   documentRequirements: z.string().max(500, "Máximo de 500 caracteres.").optional(),
-  ownerWallet: z.string().max(120, "Máximo de 120 caracteres.").optional(),
 });
 
 export type RwaFormValues = z.infer<typeof formSchema>;
 
-const formDefaultValues: RwaFormValues = {
+const formDefaultValues: Omit<RwaFormValues, "ownerWallet"> = {
   name: "",
   tokenCode: "",
   status: "Pendente",
@@ -64,7 +63,6 @@ const formDefaultValues: RwaFormValues = {
   yieldRate: "",
   description: "",
   documentRequirements: "",
-  ownerWallet: "",
 };
 
 interface RwaCreateAssetFormProps {
@@ -72,6 +70,7 @@ interface RwaCreateAssetFormProps {
   onOpenChange: (isOpen: boolean) => void;
   onSubmit: (values: RwaFormValues, file: File | null) => Promise<boolean>;
   isSubmitting: boolean;
+  ownerWallet: string | null;
 }
 
 export const RwaCreateAssetForm = ({
@@ -79,6 +78,7 @@ export const RwaCreateAssetForm = ({
   onOpenChange,
   onSubmit,
   isSubmitting,
+  ownerWallet,
 }: RwaCreateAssetFormProps) => {
   const [formStep, setFormStep] = useState(1);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -95,7 +95,7 @@ export const RwaCreateAssetForm = ({
         form.reset(formDefaultValues);
         setSelectedFile(null);
         setFormStep(1);
-      }, 150); 
+      }, 150);
     }
   };
 
@@ -108,11 +108,7 @@ export const RwaCreateAssetForm = ({
 
   const handleNextStep = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    const fieldsToValidate: (keyof RwaFormValues)[] = [
-      "name",
-      "tokenCode",
-      "status",
-    ];
+    const fieldsToValidate: (keyof RwaFormValues)[] = ["name", "tokenCode", "status"];
     const isValid = await form.trigger(fieldsToValidate);
     if (isValid) {
       setFormStep(2);
@@ -142,8 +138,20 @@ export const RwaCreateAssetForm = ({
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
             {formStep === 1 && (
-              <ScrollArea className="max-h-[60vh] pr-6 -mr-6">
+              <ScrollArea className="max-h-[70vh] pr-6 -mr-6">
                 <div className="space-y-6 pr-2">
+                  <div className="space-y-2">
+                    <Label>Carteira Responsável</Label>
+                    <div className="relative">
+                      <Wallet className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        value={ownerWallet ?? "Conecte sua carteira para continuar"}
+                        disabled
+                        className="pl-10 bg-muted/40"
+                      />
+                    </div>
+                  </div>
+
                   <div className="grid gap-4 md:grid-cols-2">
                     <FormField
                       control={form.control}
@@ -286,42 +294,6 @@ export const RwaCreateAssetForm = ({
                       </FormItem>
                     )}
                   />
-
-                  <FormField
-                    control={form.control}
-                    name="documentRequirements"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Requisitos de documentação (opcional)</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Liste os documentos que serão exigidos para a validação completa."
-                            className="bg-background/60 min-h-24"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="ownerWallet"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Carteira responsável (opcional)</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="Ex: 5xJ...aBcD"
-                            className="bg-background/60"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
                 </div>
               </ScrollArea>
             )}
@@ -350,7 +322,12 @@ export const RwaCreateAssetForm = ({
                   >
                     Cancelar
                   </Button>
-                  <Button type="button" variant="hero" onClick={handleNextStep}>
+                  <Button
+                    type="button"
+                    variant="hero"
+                    onClick={handleNextStep}
+                    disabled={!ownerWallet}
+                  >
                     Avançar
                   </Button>
                 </>
