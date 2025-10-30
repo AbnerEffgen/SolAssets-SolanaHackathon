@@ -40,7 +40,7 @@ const Settings = () => {
         navigate('/'); 
         return;
       }
-      console.log("Settings: Buscando perfil para", publicKey.toBase58());
+      console.log("Settings: Fetching profile for", publicKey.toBase58());
       setLoadingProfile(true);
       try {
         const { data, error } = await supabase
@@ -52,16 +52,16 @@ const Settings = () => {
         if (error) throw error;
 
         if (data) {
-          setProfileData(data as ProfileData)
-          console.log("Perfil encontrado:", data);
+          setProfileData(data as ProfileData);
+          console.log("Profile found:", data);
         } else {
-          console.error("Perfil não encontrado para a carteira conectada!");
-          toast.error("Erro: Perfil não encontrado. Tente reconectar.");
+          console.error("Profile not found for connected wallet!");
+          toast.error("Error: Profile not found. Try reconnecting.");
           navigate('/auth');
         }
       } catch (err: any) {
-        console.error("Erro ao buscar perfil:", err);
-        toast.error(`Erro ao carregar perfil: ${err.message}`);
+        console.error("Error fetching profile:", err);
+        toast.error(`Error loading profile: ${err.message}`);
       } finally {
         setLoadingProfile(false);
       }
@@ -72,7 +72,7 @@ const Settings = () => {
   const handleSaveProfile = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!publicKey) {
-      toast.error("Carteira não conectada.");
+      toast.error("Wallet not connected.");
       return;
     }
     setIsLoading(true);
@@ -85,7 +85,7 @@ const Settings = () => {
     };
 
     try {
-      console.log("Atualizando perfil:", updates);
+      console.log("Updating profile:", updates);
       const { error } = await supabase
         .from('profiles')
         .update(updates as any)
@@ -93,17 +93,17 @@ const Settings = () => {
 
       if (error) {
         if (error.code === '23505' && error.message.includes('profiles_email_key')) {
-          toast.error("Este email já está em uso por outro perfil.");
+          toast.error("This email is already used by another profile.");
         } else {
           throw error;
         }
       } else {
-        toast.success("Perfil atualizado com sucesso!");
+        toast.success("Profile updated successfully!");
         setProfileData(prev => prev ? { ...prev, ...updates } : null);
       }
     } catch (err: any) {
-      console.error("Erro ao atualizar perfil:", err);
-      toast.error(`Erro ao atualizar: ${err.message}`);
+      console.error("Error updating profile:", err);
+      toast.error(`Error updating: ${err.message}`);
     } finally {
       setIsLoading(false);
     }
@@ -112,11 +112,11 @@ const Settings = () => {
   const handleDisconnectWallet = async () => {
     try {
       await disconnect();
-      toast.success("Carteira desconectada.");
+      toast.success("Wallet disconnected.");
       navigate('/');
     } catch (error: any) {
-      console.error("Erro ao desconectar carteira:", error);
-      toast.error(`Erro ao desconectar: ${error.message}`);
+      console.error("Error disconnecting wallet:", error);
+      toast.error(`Error disconnecting: ${error.message}`);
     }
   };
 
@@ -137,8 +137,8 @@ const Settings = () => {
     return (
       <DashboardLayout>
         <div className="space-y-6 max-w-4xl text-center">
-          <p className="text-destructive">Não foi possível carregar os dados do perfil.</p>
-          <Button variant="outline" onClick={() => window.location.reload()}>Tentar Novamente</Button>
+          <p className="text-destructive">Failed to load profile data.</p>
+          <Button variant="outline" onClick={() => window.location.reload()}>Try Again</Button>
         </div>
       </DashboardLayout>
     );
@@ -148,14 +148,14 @@ const Settings = () => {
     <DashboardLayout>
       <div className="space-y-6 max-w-4xl">
         <div>
-          <h2 className="text-3xl font-bold mb-2">Configurações</h2>
-          <p className="text-muted-foreground">Gerencie seu perfil e preferências</p>
+          <h2 className="text-3xl font-bold mb-2">Settings</h2>
+          <p className="text-muted-foreground">Manage your profile and preferences</p>
         </div>
 
         <Tabs defaultValue="profile" className="space-y-6">
           <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="profile">Perfil</TabsTrigger>
-            <TabsTrigger value="notifications">Notificações</TabsTrigger>
+            <TabsTrigger value="profile">Profile</TabsTrigger>
+            <TabsTrigger value="notifications">Notifications</TabsTrigger>
             <TabsTrigger value="wallet">Wallet</TabsTrigger>
           </TabsList>
 
@@ -172,21 +172,21 @@ const Settings = () => {
                   <Button
                     size="icon" variant="outline"
                     className="absolute -bottom-2 -right-2 rounded-full h-8 w-8"
-                    onClick={() => toast.info("Upload de avatar ainda não implementado.")}
+                    onClick={() => toast.info("Avatar upload not implemented yet.")}
                   > <Camera className="w-4 h-4" /> </Button>
                 </div>
                 <div>
-                  <h3 className="text-xl font-semibold mb-1">{profileData?.full_name || "Nome não definido"}</h3>
-                  <p className="text-muted-foreground">{profileData?.email || "Email não definido"}</p>
+                  <h3 className="text-xl font-semibold mb-1">{profileData?.full_name || "Name not set"}</h3>
+                  <p className="text-muted-foreground">{profileData?.email || "Email not set"}</p>
                   <p className="text-sm text-gold mt-1">
-                    Membro desde {profileData?.created_at ? new Date(profileData.created_at).toLocaleDateString() : 'N/A'}
+                    Member since {profileData?.created_at ? new Date(profileData.created_at).toLocaleDateString() : 'N/A'}
                   </p>
                 </div>
               </div>
               <Separator className="mb-6" />
               <form onSubmit={handleSaveProfile} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="walletAddress">Endereço da Carteira</Label>
+                  <Label htmlFor="walletAddress">Wallet Address</Label>
                   <Input
                     id="walletAddress"
                     name="walletAddress"
@@ -198,7 +198,7 @@ const Settings = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="fullName">Nome Completo</Label>
+                  <Label htmlFor="fullName">Full Name</Label>
                   <Input
                     id="fullName" name="fullName"
                     defaultValue={profileData?.full_name || ""}
@@ -215,7 +215,7 @@ const Settings = () => {
                 </div>
                 
                 <Button type="submit" variant="hero" disabled={isLoading} className="w-full sm:w-auto">
-                  {isLoading ? "Salvando..." : "Salvar Alterações"}
+                  {isLoading ? "Saving..." : "Save Changes"}
                 </Button>
               </form>
             </Card>
@@ -226,19 +226,27 @@ const Settings = () => {
               <div className="flex items-center gap-3 mb-6">
                 <Bell className="w-6 h-6 text-primary" />
                 <div>
-                  <h3 className="text-xl font-semibold">Preferências de Notificações</h3>
-                  <p className="text-sm text-muted-foreground">Configure como deseja ser notificado</p>
+                  <h3 className="text-xl font-semibold">Notification Preferences</h3>
+                  <p className="text-sm text-muted-foreground">Set how you want to be notified</p>
                 </div>
               </div>
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
-                  <div> <p className="font-medium">Novos investidores</p> <p className="text-sm text-muted-foreground"> Quando alguém adquirir seus tokens </p> </div>
+                  <div> 
+                    <p className="font-medium">New investors</p> 
+                    <p className="text-sm text-muted-foreground"> When someone buys your tokens </p> 
+                  </div>
                   <Switch defaultChecked />
-                </div> <Separator />
+                </div> 
+                <Separator />
                 <div className="flex items-center justify-between">
-                  <div> <p className="font-medium">Votações</p> <p className="text-sm text-muted-foreground"> Novas propostas e resultados </p> </div>
+                  <div> 
+                    <p className="font-medium">Voting</p> 
+                    <p className="text-sm text-muted-foreground"> New proposals and results </p> 
+                  </div>
                   <Switch defaultChecked />
-                </div> <Separator />
+                </div> 
+                <Separator />
               </div>
             </Card>
           </TabsContent>
@@ -248,8 +256,8 @@ const Settings = () => {
               <div className="flex items-center gap-3 mb-6">
                 <Wallet className="w-6 h-6 text-primary" />
                 <div>
-                  <h3 className="text-xl font-semibold">Carteira Conectada</h3>
-                  <p className="text-sm text-muted-foreground">Seu endereço principal na plataforma</p>
+                  <h3 className="text-xl font-semibold">Connected Wallet</h3>
+                  <p className="text-sm text-muted-foreground">Your main address on the platform</p>
                 </div>
               </div>
               {publicKey ? (
@@ -260,36 +268,36 @@ const Settings = () => {
                         <Wallet className="w-5 h-5 text-primary" />
                       </div>
                       <div>
-                        <p className="font-medium">Carteira Solana</p>
+                        <p className="font-medium">Solana Wallet</p>
                         <code className="text-xs text-muted-foreground break-all">
                           {publicKey.toBase58()}
                         </code>
                       </div>
                     </div>
                     <span className="px-2 py-1 rounded text-xs bg-secondary/20 text-secondary ml-4 flex-shrink-0">
-                      Conectada
+                      Connected
                     </span>
                   </div>
                 </div>
-              ) : (<p className="text-muted-foreground text-center">Nenhuma carteira conectada.</p>)}
+              ) : (<p className="text-muted-foreground text-center">No wallet connected.</p>)}
             </Card>
           </TabsContent>
         </Tabs>
 
         <Card className="p-6 bg-card/50 backdrop-blur-sm border-destructive/50">
-          <h3 className="text-xl font-semibold mb-4 text-destructive">Zona de Perigo</h3>
+          <h3 className="text-xl font-semibold mb-4 text-destructive">Danger Zone</h3>
           <div className="space-y-4">
             <div className="flex items-center justify-between p-4 border border-border rounded-lg">
               <div>
-                <p className="font-medium">Desconectar Carteira</p>
+                <p className="font-medium">Disconnect Wallet</p>
                 <p className="text-sm text-muted-foreground">
-                  Você precisará conectar novamente para acessar o dashboard.
+                  You’ll need to reconnect to access the dashboard again.
                 </p>
               </div>
               <Button variant="outline" onClick={handleDisconnectWallet}
                 className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
                 disabled={isLoading} >
-                <LogOut className="mr-2 h-4 w-4" /> Desconectar
+                <LogOut className="mr-2 h-4 w-4" /> Disconnect
               </Button>
             </div>
           </div>
