@@ -174,6 +174,93 @@ export type Database = {
           },
         ]
       }
+      proposals: {
+        Row: {
+          created_at: string
+          creator_id: string
+          deadline: string
+          description: string
+          id: string
+          status: Database["public"]["Enums"]["proposal_status"]
+          title: string
+          asset_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          creator_id: string
+          deadline: string
+          description: string
+          id?: string
+          status?: Database["public"]["Enums"]["proposal_status"]
+          title: string
+          asset_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          creator_id?: string
+          deadline?: string
+          description?: string
+          id?: string
+          status?: Database["public"]["Enums"]["proposal_status"]
+          title?: string
+          asset_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposals_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          { 
+            foreignKeyName: "proposals_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "rwa_assets"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      votes: {
+        Row: {
+          created_at: string
+          id: string
+          proposal_id: string
+          vote: boolean
+          voter_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          proposal_id: string
+          vote: boolean
+          voter_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          proposal_id?: string
+          vote?: boolean
+          voter_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "votes_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "votes_voter_id_fkey"
+            columns: ["voter_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -184,6 +271,7 @@ export type Database = {
     Enums: {
       token_status: "Ativo" | "Pendente" | "Falhou"
       token_type: "Fungível" | "Não-fungível"
+      proposal_status: "Ativa" | "Aprovada" | "Rejeitada" | "Encerrada"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -316,3 +404,18 @@ export const Constants = {
     },
   },
 } as const
+
+export type Proposal = Database["public"]["Tables"]["proposals"]["Row"];
+export type Vote = Database["public"]["Tables"]["votes"]["Row"];
+export type Profile = Database["public"]["Tables"]["profiles"]["Row"];
+export type RwaAsset = Database["public"]["Tables"]["rwa_assets"]["Row"]; 
+
+export type ProposalWithVotes = Proposal & {
+  votesYes: number
+  votesNo: number
+  userVote: boolean | null
+  rwa_assets: {
+    name: string;
+    token_code: string;
+  } | null
+}
