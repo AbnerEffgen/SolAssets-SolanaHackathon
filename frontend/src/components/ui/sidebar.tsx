@@ -98,7 +98,7 @@ export const DesktopSidebar = ({
         onMouseLeave={() => setOpen(false)}
         {...props}
       >
-        {children}
+        {children as React.ReactNode}
       </motion.div>
     </>
   );
@@ -133,7 +133,7 @@ export const MobileSidebar = ({
           >
             <IconX />
           </div>
-          {children}
+          {children as React.ReactNode}
         </motion.div>
       )}
     </AnimatePresence>

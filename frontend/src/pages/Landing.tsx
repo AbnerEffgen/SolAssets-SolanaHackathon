@@ -4,6 +4,7 @@ import { Coins, ShieldCheck, TrendingUp, Wallet, LineChart } from "lucide-react"
 import { Link } from "react-router-dom";
 import heroImage from "@/assets/hero-tokenization.jpg";
 import logo from "@/assets/logo.svg";
+import { WavyBackground } from "@/components/ui/background";
 
 const Landing = () => {
   const features = [
@@ -25,7 +26,13 @@ const Landing = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-hero">
+    <div className="min-h-screen">
+      <WavyBackground
+        backgroundFill="hsl(var(--background))"
+        colors={["#38bdf8", "#818cf8", "#c084fc", "#e879f9", "#22d3ee"]}
+        waveWidth={10}
+        blur={5}
+      />
       {/* Header */}
       <header className="fixed top-0 w-full z-50 backdrop-blur-md bg-background/80 border-b border-border">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
