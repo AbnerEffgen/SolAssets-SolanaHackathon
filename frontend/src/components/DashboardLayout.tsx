@@ -73,7 +73,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
       <div className="flex flex-1 overflow-hidden">
         <Sidebar open={sidebarOpen} setOpen={setSidebarOpen}>
-          <SidebarBody 
+          <SidebarBody
             className="py-6 border-r border-border"
             style={{ backgroundImage: 'var(--gradient-sidebar)' }}
           >
@@ -87,7 +87,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                         link={link}
                         className={cn(
                           "rounded-lg text-base",
-                          isActive ? "bg-primary/10 text-primary font-semibold" : "hover:bg-primary/5"
+                          isActive ? "bg-primary/10 text-black font-semibold" : "hover:bg-primary/5"
                         )}
                       />
                     </Link>
@@ -104,7 +104,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                         link={link}
                         className={cn(
                           "rounded-lg text-base",
-                          isActive ? "bg-primary/10 text-primary font-semibold" : "hover:bg-primary/5"
+                          isActive ? "bg-primary/10 text-black font-semibold" : "hover:bg-primary/5"
                         )}
                       />
                     </Link>
