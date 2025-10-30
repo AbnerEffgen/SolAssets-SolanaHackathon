@@ -10,6 +10,7 @@ export interface RwaDocument {
   url: string | null;
   submitted_at: string;
   reviewer_notes: string | null;
+  profile_id: string | null;
 }
 
 export interface RwaAsset {
@@ -96,6 +97,7 @@ const mapDocumentRow = (row: any): RwaDocument => ({
   url: row.url ?? null,
   submitted_at: row.submitted_at,
   reviewer_notes: row.reviewer_notes ?? null,
+  profile_id: row.profile_id ?? null,
 });
 
 const parseNullableNumber = (value: unknown): number | null => {

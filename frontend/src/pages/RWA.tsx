@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, ChangeEvent } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -62,7 +62,14 @@ import {
   BadgePercent,
   ExternalLink,
   Wallet,
+  Paperclip,
+  Trash2,
 } from "lucide-react";
+import {
+  RwaCreateAssetForm,
+  type RwaFormValues,
+} from "@/components/rwa-forms";
+import { RwaDetailsDialog } from "@/components/rwa-details";
 import {
   fetchRwaAssets,
   createRwaAsset,
@@ -71,6 +78,7 @@ import {
   type RwaAsset,
   type CreateRwaAssetInput,
   type UpdateRwaAssetStatusInput,
+  type RwaDocument,
 } from "@/integrations/supabase/rwa";
 import { supabase } from "@/integrations/supabase/client";
 import { useHackaProgram } from "@/hooks/useHackaProgram";
@@ -82,7 +90,7 @@ import {
   convertCurrencyToMinorUnits,
   toBasisPoints,
 } from "@/lib/solana";
-import type { Database } from "@/integrations/supabase/types";
+import type { Database, TablesInsert } from "@/integrations/supabase/types";
 
 type FilterValue = "all" | AssetStatus;
 
@@ -205,17 +213,12 @@ const RWA = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<RwaAsset | null>(null);
-  const [statusDraft, setStatusDraft] = useState<AssetStatus>("Pendente");
-  const [rejectionReason, setRejectionReason] = useState("");
-
-  const trimmedReason = rejectionReason.trim();
 
   const [assets, setAssets] = useState<RwaAsset[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isSavingAsset, setIsSavingAsset] = useState(false);
-  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const { publicKey, connected } = useWallet();
   const program = useHackaProgram();
   const [profileId, setProfileId] = useState<string | null>(null);
@@ -224,11 +227,8 @@ const RWA = () => {
   const [tokenizeSupply, setTokenizeSupply] = useState("");
   const [tokenizeMetadataUri, setTokenizeMetadataUri] = useState("");
   const [isTokenizing, setIsTokenizing] = useState(false);
-
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: formDefaultValues,
-  });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -250,6 +250,60 @@ const RWA = () => {
 
     fetchProfile();
   }, []);
+
+  const uploadAndRegisterDocument = async (
+    asset: RwaAsset,
+    file: File,
+    profileId: string,
+  ): Promise<RwaDocument> => {
+    const allowedTypes = ["image/jpeg", "image/png", "application/pdf"];
+    if (!allowedTypes.includes(file.type)) {
+      throw new Error("Tipo de arquivo inválido. Apenas JPEG, PNG e PDF são permitidos.");
+    }
+
+    const maxSizeInMB = 15;
+    const maxSizeInBytes = maxSizeInMB * 1024 * 1024;
+    if (file.size > maxSizeInBytes) {
+      throw new Error(`Arquivo muito grande. O tamanho máximo permitido é de ${maxSizeInMB}MB.`);
+    }
+
+    const bucketName = "raw_docs";
+    const filePath = `${profileId}/${asset.id}/${Date.now()}-${file.name}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from(bucketName)
+      .upload(filePath, file);
+
+    if (uploadError) {
+      throw uploadError;
+    }
+
+    const { data: urlData } = supabase.storage.from(bucketName).getPublicUrl(filePath);
+
+    if (!urlData?.publicUrl) {
+      throw new Error("Não foi possível obter a URL pública do arquivo.");
+    }
+
+    const newDocument: TablesInsert<"rwa_documents"> = {
+      asset_id: asset.id,
+      name: file.name,
+      status: "Pendente",
+      url: urlData.publicUrl,
+      profile_id: profileId,
+    };
+
+    const { data: dbData, error: dbError } = await supabase
+      .from("rwa_documents")
+      .insert(newDocument)
+      .select()
+      .single();
+
+    if (dbError) {
+      throw dbError;
+    }
+
+    return dbData as RwaDocument;
+  };
 
   const loadAssets = useCallback(async (isInitial = false) => {
     if (isInitial) {
@@ -277,13 +331,6 @@ const RWA = () => {
   useEffect(() => {
     loadAssets(true);
   }, [loadAssets]);
-
-  useEffect(() => {
-    if (selectedAsset) {
-      setStatusDraft(selectedAsset.status);
-      setRejectionReason(selectedAsset.rejection_reason ?? "");
-    }
-  }, [selectedAsset]);
 
   const counts = useMemo(() => {
     const approved = assets.filter((asset) => asset.status === "Aprovado").length;
@@ -343,91 +390,71 @@ const RWA = () => {
     },
   ];
 
-  const hasStatusChanges = selectedAsset
-    ? statusDraft !== selectedAsset.status ||
-      (statusDraft === "Rejeitado"
-        ? trimmedReason !== (selectedAsset.rejection_reason ?? "")
-        : Boolean(selectedAsset.rejection_reason))
-    : false;
-
-  const handleCreateDialogChange = (open: boolean) => {
-    setIsCreateOpen(open);
-    if (!open) {
-      form.reset(formDefaultValues);
-    }
-  };
-
   const handleDetailDialogChange = (open: boolean) => {
     if (!open) {
       setSelectedAsset(null);
     }
   };
 
-  const handleCreateSubmit = async (values: FormValues) => {
-    const payload: CreateRwaAssetInput = {
-      name: values.name.trim(),
-      token_code: values.tokenCode.trim().toUpperCase(),
-      status: values.status,
-      location: values.location?.trim() ? values.location.trim() : null,
-      valuation: parseOptionalNumber(values.valuation),
-      yield_rate: parseOptionalNumber(values.yieldRate),
-      description: values.description?.trim() ? values.description.trim() : null,
-      document_requirements: values.documentRequirements?.trim()
-        ? values.documentRequirements.trim()
-        : null,
-      owner_wallet: values.ownerWallet?.trim() ? values.ownerWallet.trim() : null,
-    };
-
+  const handleCreateSubmit = async (values: RwaFormValues, file: File | null): Promise<boolean> => {
     setIsSavingAsset(true);
     try {
+      const payload: CreateRwaAssetInput = {
+        name: values.name.trim(),
+        token_code: values.tokenCode.trim().toUpperCase(),
+        status: values.status,
+        location: values.location?.trim() ? values.location.trim() : null,
+        valuation: parseOptionalNumber(values.valuation),
+        yield_rate: parseOptionalNumber(values.yieldRate),
+        description: values.description?.trim() ? values.description.trim() : null,
+        document_requirements: values.documentRequirements?.trim()
+          ? values.documentRequirements.trim()
+          : null,
+        owner_wallet: values.ownerWallet?.trim() ? values.ownerWallet.trim() : null,
+      };
+
       const createdAsset = await createRwaAsset(payload);
-      setAssets((previous) => [createdAsset, ...previous]);
-      toast.success("Ativo cadastrado com sucesso!");
-      setIsCreateOpen(false);
-      form.reset(formDefaultValues);
+
+      if (file) {
+        try {
+          if (!profileId) {
+            throw new Error("ID do perfil do usuário não encontrado. Faça o login novamente.");
+          }
+          const newDocument = await uploadAndRegisterDocument(createdAsset, file, profileId);
+          const assetWithDoc = {
+            ...createdAsset,
+            documents: [newDocument],
+          };
+          setAssets((previous) => [assetWithDoc, ...previous]);
+          toast.success("Ativo e documento cadastrados com sucesso!");
+        } catch (uploadError) {
+          toast.error("Falha ao enviar documento. O ativo não foi salvo.", {
+            description: describeError(uploadError),
+          });
+          return false; 
+        }
+      } else {
+        setAssets((previous) => [createdAsset, ...previous]);
+        toast.success("Ativo cadastrado com sucesso!");
+      }
+      
+      return true;
     } catch (err) {
       const message = err instanceof Error ? err.message : "Erro ao cadastrar o ativo.";
       toast.error("Não foi possível cadastrar o ativo.", {
         description: message,
       });
+      return false;
     } finally {
       setIsSavingAsset(false);
     }
   };
 
-  const handleStatusSave = async () => {
-    if (!selectedAsset) {
-      return;
-    }
-
-    if (statusDraft === "Rejeitado" && trimmedReason.length < 3) {
-      toast.error("Informe um motivo para a rejeição com pelo menos 3 caracteres.");
-      return;
-    }
-
-    const payload: UpdateRwaAssetStatusInput = {
-      assetId: selectedAsset.id,
-      status: statusDraft,
-      rejection_reason: statusDraft === "Rejeitado" ? trimmedReason : null,
-    };
-
-    setIsUpdatingStatus(true);
-    try {
-      const updatedAsset = await updateRwaAssetStatus(payload);
-      setAssets((previous) =>
-        previous.map((asset) => (asset.id === updatedAsset.id ? updatedAsset : asset)),
-      );
-      setSelectedAsset(updatedAsset);
-      toast.success("Status atualizado com sucesso!");
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Erro ao atualizar o status.";
-      toast.error("Não foi possível atualizar o status.", {
-        description: message,
-      });
-    } finally {
-      setIsUpdatingStatus(false);
-    }
+  const handleAssetUpdate = (updatedAsset: RwaAsset) => {
+    setAssets((previous) =>
+      previous.map((asset) => (asset.id === updatedAsset.id ? updatedAsset : asset)),
+    );
+    setSelectedAsset(updatedAsset);
   };
 
   const resetTokenizeState = () => {
@@ -672,6 +699,29 @@ const RWA = () => {
     }
   };
 
+  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+    }
+  };
+
+  const handleDocumentUpload = async (asset: RwaAsset, file: File, profileId: string) => {
+    setIsUploading(true);
+    try {
+      const newDocument = await uploadAndRegisterDocument(asset, file, profileId);
+      return newDocument;
+    } catch (error) {
+      console.error("Erro no upload do documento:", error);
+      toast.error("Falha ao enviar o documento.", {
+        description: describeError(error),
+      });
+      throw error; 
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   return (
     <DashboardLayout>
       <Dialog open={isTokenizeOpen} onOpenChange={handleTokenizeDialogChange}>
@@ -778,401 +828,21 @@ const RWA = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isCreateOpen} onOpenChange={handleCreateDialogChange}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Novo ativo RWA</DialogTitle>
-            <DialogDescription>
-              Cadastre as informações iniciais para iniciar a validação do ativo real.
-            </DialogDescription>
-          </DialogHeader>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleCreateSubmit)} className="space-y-6">
-              <div className="grid gap-4 md:grid-cols-2">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nome do ativo</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Fazenda São João" className="bg-background/60" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="tokenCode"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Código do token</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="AGR-001"
-                          className="bg-background/60 uppercase"
-                          {...field}
-                          onChange={(event) => field.onChange(event.target.value.toUpperCase())}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+      <RwaCreateAssetForm
+        isOpen={isCreateOpen}
+        onOpenChange={setIsCreateOpen}
+        onSubmit={handleCreateSubmit}
+        isSubmitting={isSavingAsset}
+      />
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <FormField
-                  control={form.control}
-                  name="status"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Status inicial</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger className="bg-background/60">
-                            <SelectValue placeholder="Selecione o status" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {assetStatusOptions.map((status) => (
-                            <SelectItem key={status} value={status}>
-                              {status === "Em Análise" ? "Em análise" : status}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="location"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Localização</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Município / Estado"
-                          className="bg-background/60"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <FormField
-                  control={form.control}
-                  name="valuation"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Valuation estimado (R$)</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          placeholder="500000"
-                          className="bg-background/60"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="yieldRate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Yield esperado (% a.a.)</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          placeholder="8.5"
-                          className="bg-background/60"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <FormField
-                control={form.control}
-                name="documentRequirements"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Requisitos de documentação</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Certidão de matrícula, laudo de avaliação, contrato social..."
-                        className="bg-background/60 min-h-24"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Descrição</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Resumo do ativo, propósito da tokenização e outras observações."
-                        className="bg-background/60 min-h-24"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="ownerWallet"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Carteira responsável (opcional)</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Ex: 0x1234...abcd" className="bg-background/60" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => handleCreateDialogChange(false)}
-                  disabled={isSavingAsset}
-                >
-                  Cancelar
-                </Button>
-                <Button type="submit" variant="hero" disabled={isSavingAsset}>
-                  {isSavingAsset ? "Salvando..." : "Cadastrar ativo"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={Boolean(selectedAsset)} onOpenChange={handleDetailDialogChange}>
-        <DialogContent className="max-w-3xl">
-          {selectedAsset && (
-            <>
-              <DialogHeader>
-                <DialogTitle>{selectedAsset.name}</DialogTitle>
-                <DialogDescription>
-                  Acompanhe a documentação e atualize o status desse ativo real.
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="space-y-6">
-                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Status atual</p>
-                    <div className="flex items-center gap-2">
-                      {getStatusIcon(statusDraft)}
-                      <span className={cn("font-medium", getStatusColor(statusDraft))}>
-                        {statusDraft}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="w-full md:w-60">
-                    <Select value={statusDraft} onValueChange={(value) => setStatusDraft(value as AssetStatus)}>
-                      <SelectTrigger className="bg-background/60">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {assetStatusOptions.map((status) => (
-                          <SelectItem key={status} value={status}>
-                            {status === "Em Análise" ? "Em análise" : status}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {statusDraft === "Rejeitado" && (
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium text-muted-foreground">Motivo da rejeição</p>
-                    <Textarea
-                      placeholder="Descreva o que precisa ser ajustado"
-                      value={rejectionReason}
-                      onChange={(event) => setRejectionReason(event.target.value)}
-                      className="bg-background/60 min-h-[100px]"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Essa mensagem será exibida para o time responsável pelo ativo.
-                    </p>
-                  </div>
-                )}
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="rounded-lg border border-border/60 bg-muted/10 p-4 space-y-2">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Token</p>
-                    <p className="text-lg font-semibold">{selectedAsset.token_code}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Cadastrado em {formatDate(selectedAsset.created_at)}
-                    </p>
-                  </div>
-                  <div className="rounded-lg border border-border/60 bg-muted/10 p-4 space-y-3">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <MapPin className="h-4 w-4" />
-                      <span>Localização</span>
-                    </div>
-                    <p className="text-sm font-medium">
-                      {selectedAsset.location ?? "Não informada"}
-                    </p>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Wallet className="h-4 w-4" />
-                      <span>Carteira responsável</span>
-                    </div>
-                    <p className="text-sm font-medium break-all">
-                      {selectedAsset.owner_wallet ?? "Não vinculada"}
-                    </p>
-                  </div>
-                  <div className="rounded-lg border border-border/60 bg-muted/10 p-4 space-y-3">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Coins className="h-4 w-4" />
-                      <span>Valuation estimado</span>
-                    </div>
-                    <p className="text-sm font-medium">
-                      {selectedAsset.valuation !== null
-                        ? `R$ ${numberFormatter.format(selectedAsset.valuation)}`
-                        : "Não informado"}
-                    </p>
-                  </div>
-                  <div className="rounded-lg border border-border/60 bg-muted/10 p-4 space-y-3">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <BadgePercent className="h-4 w-4" />
-                      <span>Yield esperado (a.a.)</span>
-                    </div>
-                    <p className="text-sm font-medium">
-                      {formatPercentage(selectedAsset.yield_rate)}
-                    </p>
-                  </div>
-                </div>
-
-                {selectedAsset.description && (
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-semibold text-muted-foreground">Descrição</h4>
-                    <p className="text-sm text-muted-foreground">{selectedAsset.description}</p>
-                  </div>
-                )}
-
-                {selectedAsset.document_requirements && (
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-semibold text-muted-foreground">Documentação exigida</h4>
-                    <p className="text-sm text-muted-foreground">
-                      {selectedAsset.document_requirements}
-                    </p>
-                  </div>
-                )}
-
-                <div>
-                  <h4 className="text-sm font-semibold mb-3 text-muted-foreground">
-                    Documentos enviados
-                  </h4>
-                  <ScrollArea className="max-h-72 pr-4">
-                    {selectedAsset.documents.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">
-                        Nenhum documento cadastrado até o momento.
-                      </p>
-                    ) : (
-                      <div className="space-y-3">
-                        {selectedAsset.documents.map((document) => (
-                          <div
-                            key={document.id}
-                            className="rounded-lg border border-border/60 bg-background/60 p-3 space-y-2"
-                          >
-                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                              <div>
-                                <p className="font-medium">{document.name}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  Enviado em {formatDate(document.submitted_at)}
-                                </p>
-                              </div>
-                              <span className={cn("text-sm font-medium", getStatusColor(document.status))}>
-                                {document.status}
-                              </span>
-                            </div>
-                            {document.reviewer_notes && (
-                              <p className="text-xs text-muted-foreground">
-                                Observações: {document.reviewer_notes}
-                              </p>
-                            )}
-                            {document.url && (
-                              <Button variant="link" size="sm" className="px-0 w-fit" asChild>
-                                <a href={document.url} target="_blank" rel="noreferrer">
-                                  Abrir documento
-                                  <ExternalLink className="ml-1 h-3.5 w-3.5" />
-                                </a>
-                              </Button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </ScrollArea>
-                </div>
-              </div>
-
-              <DialogFooter className="gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setSelectedAsset(null)}
-                  disabled={isUpdatingStatus}
-                >
-                  Fechar
-                </Button>
-                {selectedAsset?.status === "Aprovado" && !selectedAsset.owner_wallet && (
-                  <Button
-                    variant="gold"
-                    onClick={() => selectedAsset && handleOpenTokenize(selectedAsset)}
-                    disabled={!connected || !program || isTokenizing}
-                  >
-                    Tokenizar ativo
-                  </Button>
-                )}
-                <Button
-                  variant="hero"
-                  onClick={handleStatusSave}
-                  disabled={
-                    !selectedAsset ||
-                    isUpdatingStatus ||
-                    !hasStatusChanges ||
-                    (statusDraft === "Rejeitado" && trimmedReason.length < 3)
-                  }
-                >
-                  {isUpdatingStatus ? "Salvando..." : "Salvar alterações"}
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+      <RwaDetailsDialog
+        isOpen={Boolean(selectedAsset)}
+        onOpenChange={handleDetailDialogChange}
+        asset={selectedAsset}
+        profileId={profileId}
+        onAssetUpdate={handleAssetUpdate}
+        onDocumentUpload={handleDocumentUpload}
+      />
 
       <div className="space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">

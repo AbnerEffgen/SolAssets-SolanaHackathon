@@ -14,6 +14,141 @@ export type Database = {
   }
   public: {
     Tables: {
+      market_orders: {
+        Row: {
+          buyer_profile_id: string
+          buyer_wallet: string
+          created_at: string
+          fill_transaction_hash: string | null
+          filled_quantity: number | null
+          id: string
+          price: number
+          quantity: number
+          seller_profile_id: string | null
+          seller_wallet: string | null
+          status: Database["public"]["Enums"]["order_status"]
+          token_id: string
+          updated_at: string
+        }
+        Insert: {
+          buyer_profile_id: string
+          buyer_wallet: string
+          created_at?: string
+          fill_transaction_hash?: string | null
+          filled_quantity?: number | null
+          id?: string
+          price: number
+          quantity: number
+          seller_profile_id?: string | null
+          seller_wallet?: string | null
+          status?: Database["public"]["Enums"]["order_status"]
+          token_id: string
+          updated_at?: string
+        }
+        Update: {
+          buyer_profile_id?: string
+          buyer_wallet?: string
+          created_at?: string
+          fill_transaction_hash?: string | null
+          filled_quantity?: number | null
+          id?: string
+          price?: number
+          quantity?: number
+          seller_profile_id?: string | null
+          seller_wallet?: string | null
+          status?: Database["public"]["Enums"]["order_status"]
+          token_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "market_orders_buyer_profile_id_fkey"
+            columns: ["buyer_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "market_orders_seller_profile_id_fkey"
+            columns: ["seller_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "market_orders_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      market_trades: {
+        Row: {
+          buyer_profile_id: string
+          created_at: string
+          id: string
+          order_id: string
+          price: number
+          quantity: number
+          seller_profile_id: string
+          token_id: string
+          transaction_hash: string | null
+        }
+        Insert: {
+          buyer_profile_id: string
+          created_at?: string
+          id?: string
+          order_id: string
+          price: number
+          quantity: number
+          seller_profile_id: string
+          token_id: string
+          transaction_hash?: string | null
+        }
+        Update: {
+          buyer_profile_id?: string
+          created_at?: string
+          id?: string
+          order_id?: string
+          price?: number
+          quantity?: number
+          seller_profile_id?: string
+          token_id?: string
+          transaction_hash?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "market_trades_buyer_profile_id_fkey"
+            columns: ["buyer_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "market_trades_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "market_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "market_trades_seller_profile_id_fkey"
+            columns: ["seller_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "market_trades_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -40,6 +175,54 @@ export type Database = {
           wallet_address?: string
         }
         Relationships: []
+      }
+      proposals: {
+        Row: {
+          asset_id: string | null
+          created_at: string
+          creator_id: string
+          deadline: string
+          description: string
+          id: string
+          status: Database["public"]["Enums"]["proposal_status"]
+          title: string
+        }
+        Insert: {
+          asset_id?: string | null
+          created_at?: string
+          creator_id: string
+          deadline: string
+          description: string
+          id?: string
+          status?: Database["public"]["Enums"]["proposal_status"]
+          title: string
+        }
+        Update: {
+          asset_id?: string | null
+          created_at?: string
+          creator_id?: string
+          deadline?: string
+          description?: string
+          id?: string
+          status?: Database["public"]["Enums"]["proposal_status"]
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposals_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "rwa_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposals_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       rwa_assets: {
         Row: {
@@ -94,6 +277,7 @@ export type Database = {
           asset_id: string
           id: string
           name: string
+          profile_id: string | null
           reviewer_notes: string | null
           status: string
           submitted_at: string
@@ -103,6 +287,7 @@ export type Database = {
           asset_id: string
           id?: string
           name: string
+          profile_id?: string | null
           reviewer_notes?: string | null
           status: string
           submitted_at?: string
@@ -112,6 +297,7 @@ export type Database = {
           asset_id?: string
           id?: string
           name?: string
+          profile_id?: string | null
           reviewer_notes?: string | null
           status?: string
           submitted_at?: string
@@ -125,6 +311,13 @@ export type Database = {
             referencedRelation: "rwa_assets"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "rwa_documents_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       tokens: {
@@ -132,6 +325,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          mint_address: string | null
           name: string
           profile_id: string
           quantity: number
@@ -139,11 +333,13 @@ export type Database = {
           tag: string
           transaction_hash: string | null
           type: Database["public"]["Enums"]["token_type"]
+          unit_price: number | null
         }
         Insert: {
           created_at?: string
           description?: string | null
           id?: string
+          mint_address?: string | null
           name: string
           profile_id: string
           quantity: number
@@ -151,11 +347,13 @@ export type Database = {
           tag: string
           transaction_hash?: string | null
           type: Database["public"]["Enums"]["token_type"]
+          unit_price?: number | null
         }
         Update: {
           created_at?: string
           description?: string | null
           id?: string
+          mint_address?: string | null
           name?: string
           profile_id?: string
           quantity?: number
@@ -163,6 +361,7 @@ export type Database = {
           tag?: string
           transaction_hash?: string | null
           type?: Database["public"]["Enums"]["token_type"]
+          unit_price?: number | null
         }
         Relationships: [
           {
@@ -172,54 +371,6 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
-        ]
-      }
-      proposals: {
-        Row: {
-          created_at: string
-          creator_id: string
-          deadline: string
-          description: string
-          id: string
-          status: Database["public"]["Enums"]["proposal_status"]
-          title: string
-          asset_id: string | null
-        }
-        Insert: {
-          created_at?: string
-          creator_id: string
-          deadline: string
-          description: string
-          id?: string
-          status?: Database["public"]["Enums"]["proposal_status"]
-          title: string
-          asset_id?: string | null
-        }
-        Update: {
-          created_at?: string
-          creator_id?: string
-          deadline?: string
-          description?: string
-          id?: string
-          status?: Database["public"]["Enums"]["proposal_status"]
-          title?: string
-          asset_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "proposals_creator_id_fkey"
-            columns: ["creator_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          { 
-            foreignKeyName: "proposals_asset_id_fkey"
-            columns: ["asset_id"]
-            isOneToOne: false
-            referencedRelation: "rwa_assets"
-            referencedColumns: ["id"]
-          }
         ]
       }
       votes: {
@@ -258,7 +409,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
     }
@@ -266,12 +417,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      debug_profile_check: {
+        Args: never
+        Returns: {
+          current_auth_uid: string
+          profile_exists_for_auth_uid: boolean
+          profile_id_in_table: string
+        }[]
+      }
     }
     Enums: {
+      order_status: "open" | "partial" | "filled" | "cancelled"
+      proposal_status: "Ativa" | "Aprovada" | "Rejeitada" | "Encerrada"
       token_status: "Ativo" | "Pendente" | "Falhou"
       token_type: "Fungível" | "Não-fungível"
-      proposal_status: "Ativa" | "Aprovada" | "Rejeitada" | "Encerrada"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -399,23 +558,10 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      order_status: ["open", "partial", "filled", "cancelled"],
+      proposal_status: ["Ativa", "Aprovada", "Rejeitada", "Encerrada"],
       token_status: ["Ativo", "Pendente", "Falhou"],
       token_type: ["Fungível", "Não-fungível"],
     },
   },
 } as const
-
-export type Proposal = Database["public"]["Tables"]["proposals"]["Row"];
-export type Vote = Database["public"]["Tables"]["votes"]["Row"];
-export type Profile = Database["public"]["Tables"]["profiles"]["Row"];
-export type RwaAsset = Database["public"]["Tables"]["rwa_assets"]["Row"]; 
-
-export type ProposalWithVotes = Proposal & {
-  votesYes: number
-  votesNo: number
-  userVote: boolean | null
-  rwa_assets: {
-    name: string;
-    token_code: string;
-  } | null
-}
