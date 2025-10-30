@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Coins, ShieldCheck, TrendingUp, Wallet, LineChart } from "lucide-react";
 import { Link } from "react-router-dom"; // Importar Link
 import heroImage from "@/assets/hero-tokenization.jpg";
+import logo from "@/assets/logo.svg";
 
 const Landing = () => {
   const features = [
@@ -28,12 +29,7 @@ const Landing = () => {
       {/* Header */}
       <header className="fixed top-0 w-full z-50 backdrop-blur-md bg-background/80 border-b border-border">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Wallet className="w-8 h-8 text-primary" />
-            <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              SolAssets
-            </h1>
-          </div>
+          <img src={logo} alt="SolAssets Logo" className="h-10" />
           <nav className="hidden md:flex items-center gap-6">
             <a href="#features" className="text-foreground/80 hover:text-primary transition-colors">
               Recursos
@@ -42,7 +38,7 @@ const Landing = () => {
               Como funciona
             </a>
             <Link to="/auth">
-                <Button variant="outline">Entrar</Button>
+              <Button variant="outline">Entrar</Button>
             </Link>
           </nav>
         </div>
@@ -92,7 +88,7 @@ const Landing = () => {
 
       {/* Features Section */}
       <section id="features" className="py-20 px-4">
-           <div className="container mx-auto">
+        <div className="container mx-auto">
           <div className="text-center mb-16">
             <h3 className="text-4xl font-bold mb-4">
               Tokenização sem complexidade
@@ -121,7 +117,7 @@ const Landing = () => {
 
       {/* How it works */}
       <section id="how-it-works" className="py-20 px-4 bg-card/20">
-         <div className="container mx-auto">
+        <div className="container mx-auto">
           <div className="text-center mb-16">
             <h3 className="text-4xl font-bold mb-4">
               Como funciona
@@ -167,11 +163,8 @@ const Landing = () => {
 
       {/* Footer */}
       <footer className="border-t border-border py-8 px-4">
-         <div className="container mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <Wallet className="w-6 h-6 text-primary" />
-            <span className="font-semibold">SolAssets</span>
-          </div>
+        <div className="container mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+          <img src={logo} alt="SolAssets Logo" className="h-8" />
           <p className="text-sm text-muted-foreground">
             Powered by Solana
           </p>

@@ -16,6 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 // Importar o botão do Wallet Adapter
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
+import logo from "@/assets/logo.svg";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -50,10 +51,9 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               {sidebarOpen ? <X /> : <Menu />}
             </Button>
             <Link to="/dashboard" className="flex items-center gap-2">
-              <Wallet className="w-6 h-6 text-primary" />
-              <h1 className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-                SolAssets
-              </h1>
+              <div className="flex items-center gap-2">
+                <img src={logo} alt="SolAssets Logo" className="h-10" />
+              </div>
             </Link>
           </div>
           {/* Substituir o botão antigo por este */}
