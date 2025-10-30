@@ -114,8 +114,7 @@ export const RwaDetailsDialog = ({
   const [statusDraft, setStatusDraft] = useState<AssetStatus>("Pendente");
   const [rejectionReason, setRejectionReason] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const trimmedReason = rejectionReason.trim();
 
@@ -123,6 +122,12 @@ export const RwaDetailsDialog = ({
     if (asset) {
       setStatusDraft(asset.status);
       setRejectionReason(asset.rejection_reason ?? "");
+    } else {
+      // Reset state when dialog closes or asset is null
+      setTimeout(() => {
+        setSelectedFile(null);
+        setRejectionReason("");
+      }, 150);
     }
   }, [asset]);
 
@@ -133,61 +138,69 @@ export const RwaDetailsDialog = ({
         : Boolean(asset.rejection_reason))
     : false;
 
-  const handleStatusSave = async () => {
+  const hasChanges = hasStatusChanges || Boolean(selectedFile);
+
+  const handleSaveChanges = async () => {
     if (!asset) return;
 
-    if (statusDraft === "Rejeitado" && trimmedReason.length < 3) {
-      toast.error("Informe um motivo para a rejeição com pelo menos 3 caracteres.");
-      return;
-    }
+    setIsSaving(true);
+    let assetAfterUpdate = asset;
+    let success = true;
 
-    const payload: UpdateRwaAssetStatusInput = {
-      assetId: asset.id,
-      status: statusDraft,
-      rejection_reason: statusDraft === "Rejeitado" ? trimmedReason : null,
-    };
+    // 1. Salvar mudanças de status, se houver
+    if (hasStatusChanges) {
+      if (statusDraft === "Rejeitado" && trimmedReason.length < 3) {
+        toast.error("Informe um motivo para a rejeição com pelo menos 3 caracteres.");
+        setIsSaving(false);
+        return;
+      }
 
-    setIsUpdatingStatus(true);
-    try {
-      const updatedAsset = await updateRwaAssetStatus(payload);
-      onAssetUpdate(updatedAsset);
-      toast.success("Status atualizado com sucesso!");
-    } catch (err) {
-      toast.error("Não foi possível atualizar o status.", {
-        description: describeError(err),
-      });
-    } finally {
-      setIsUpdatingStatus(false);
-    }
-  };
-
-  const handleDocumentUploadAction = async () => {
-    if (!selectedFile || !asset) {
-      toast.error("Nenhum arquivo ou ativo selecionado.");
-      return;
-    }
-    if (!profileId) {
-      toast.error("ID do perfil não encontrado. Por favor, recarregue a página.");
-      return;
-    }
-
-    setIsUploading(true);
-    try {
-      const newDocument = await onDocumentUpload(asset, selectedFile, profileId);
-      const updatedAsset = {
-        ...asset,
-        documents: [...asset.documents, newDocument],
+      const payload: UpdateRwaAssetStatusInput = {
+        assetId: asset.id,
+        status: statusDraft,
+        rejection_reason: statusDraft === "Rejeitado" ? trimmedReason : null,
       };
-      onAssetUpdate(updatedAsset);
-      toast.success("Documento enviado com sucesso!");
-      setSelectedFile(null);
-    } catch (error) {
-      toast.error("Falha ao enviar o documento.", {
-        description: describeError(error),
-      });
-    } finally {
-      setIsUploading(false);
+
+      try {
+        assetAfterUpdate = await updateRwaAssetStatus(payload);
+        toast.success("Status atualizado com sucesso!");
+      } catch (err) {
+        success = false;
+        toast.error("Não foi possível atualizar o status.", {
+          description: describeError(err),
+        });
+      }
     }
+
+    // 2. Fazer upload do documento, se houver e o passo anterior foi bem sucedido
+    if (selectedFile && success) {
+      if (!profileId) {
+        toast.error("ID do perfil não encontrado. Por favor, recarregue a página.");
+        setIsSaving(false);
+        return;
+      }
+      try {
+        const newDocument = await onDocumentUpload(assetAfterUpdate, selectedFile, profileId);
+        assetAfterUpdate = {
+          ...assetAfterUpdate,
+          documents: [...assetAfterUpdate.documents, newDocument],
+        };
+        toast.success("Documento enviado com sucesso!");
+        setSelectedFile(null); // Limpa o arquivo após o envio
+      } catch (error) {
+        success = false;
+        toast.error("Falha ao enviar o documento.", {
+          description: describeError(error),
+        });
+      }
+    }
+
+    // 3. Atualizar o estado final do ativo
+    if (success) {
+      onAssetUpdate(assetAfterUpdate);
+    }
+
+    setIsSaving(false);
   };
 
   return (
@@ -215,7 +228,11 @@ export const RwaDetailsDialog = ({
                     </div>
                   </div>
                   <div className="w-full md:w-60">
-                    <Select value={statusDraft} onValueChange={(value) => setStatusDraft(value as AssetStatus)}>
+                    <Select
+                      value={statusDraft}
+                      onValueChange={(value) => setStatusDraft(value as AssetStatus)}
+                      disabled={isSaving}
+                    >
                       <SelectTrigger className="bg-background/60">
                         <SelectValue />
                       </SelectTrigger>
@@ -238,6 +255,7 @@ export const RwaDetailsDialog = ({
                       value={rejectionReason}
                       onChange={(event) => setRejectionReason(event.target.value)}
                       className="bg-background/60 min-h-[100px]"
+                      disabled={isSaving}
                     />
                     <p className="text-xs text-muted-foreground">
                       Essa mensagem será exibida para o time responsável pelo ativo.
@@ -337,31 +355,14 @@ export const RwaDetailsDialog = ({
                   </div>
 
                   <div className="space-y-2 pt-4 border-t border-border">
-                    <div className="flex items-start gap-2">
-                      <div className="flex-1">
-                        <FileUpload
-                          id="document-upload-detail"
-                          label="Enviar novo documento"
-                          selectedFile={selectedFile}
-                          onFileChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
-                          onFileClear={() => setSelectedFile(null)}
-                          disabled={isUploading}
-                        />
-                      </div>
-                      <Button
-                        onClick={handleDocumentUploadAction}
-                        disabled={!selectedFile || isUploading}
-                        variant="secondary"
-                        size="icon"
-                        className="mt-8"
-                      >
-                        {isUploading ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Upload className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </div>
+                    <FileUpload
+                      id="document-upload-detail"
+                      label="Enviar novo documento"
+                      selectedFile={selectedFile}
+                      onFileChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
+                      onFileClear={() => setSelectedFile(null)}
+                      disabled={isSaving}
+                    />
                   </div>
                 </div>
               </div>
@@ -374,10 +375,10 @@ export const RwaDetailsDialog = ({
               <Button
                 type="button"
                 variant="hero"
-                onClick={handleStatusSave}
-                disabled={!hasStatusChanges || isUpdatingStatus}
+                onClick={handleSaveChanges}
+                disabled={!hasChanges || isSaving}
               >
-                {isUpdatingStatus ? "Salvando..." : "Salvar alterações"}
+                {isSaving ? "Salvando..." : "Salvar alterações"}
               </Button>
             </DialogFooter>
           </>
