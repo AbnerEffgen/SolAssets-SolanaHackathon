@@ -29,13 +29,13 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     { icon: Home, label: "Dashboard", path: "/dashboard" },
     { icon: Coins, label: "Tokens", path: "/dashboard/tokens" },
     { icon: FileText, label: "RWA", path: "/dashboard/rwa" },
-    { icon: Vote, label: "Governança", path: "/dashboard/governance" },
-    { icon: TrendingUp, label: "Mercado", path: "/dashboard/market" },
+    { icon: Vote, label: "Governance", path: "/dashboard/governance" },
+    { icon: TrendingUp, label: "Market", path: "/dashboard/market" },
   ];
 
   const bottomMenuItems = [
-    { icon: Bell, label: "Notificações", path: "/dashboard/notifications" },
-    { icon: Settings, label: "Configurações", path: "/dashboard/settings" },
+    { icon: Bell, label: "Notifications", path: "/dashboard/notifications" },
+    { icon: Settings, label: "Settings", path: "/dashboard/settings" },
   ];
 
   // Função para mapear itens para o formato de link
@@ -50,7 +50,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
   return (
     <div className="h-screen w-full flex flex-col bg-background">
-      <header className="shrink-0 z-50 backdrop-blur-md bg-background/80 border-b border-border">
+      <header className="shrink-0 z-50 backdrop-blur-md bg-black border-b border-border">
         <div className="flex items-center justify-between px-4 h-14">
           <div className="flex items-center gap-4">
             <Button
@@ -73,7 +73,10 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
       <div className="flex flex-1 overflow-hidden">
         <Sidebar open={sidebarOpen} setOpen={setSidebarOpen}>
-          <SidebarBody className="py-6 bg-card/30 border-r border-border">
+          <SidebarBody 
+            className="py-6 border-r border-border"
+            style={{ backgroundImage: 'var(--gradient-sidebar)' }}
+          >
             <div className="flex flex-col justify-between h-full">
               <div className="space-y-2">
                 {mainLinks.map((link, idx) => {
