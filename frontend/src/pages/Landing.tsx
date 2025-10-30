@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Coins, ShieldCheck, TrendingUp, Wallet, LineChart } from "lucide-react";
-import { Link } from "react-router-dom"; // Importar Link
+import { Link } from "react-router-dom";
 import heroImage from "@/assets/hero-tokenization.jpg";
 import logo from "@/assets/logo.svg";
 
@@ -9,18 +9,18 @@ const Landing = () => {
   const features = [
     {
       icon: Coins,
-      title: "Crie tokens sem código",
-      description: "Emita seus próprios tokens em minutos, sem necessidade de conhecimento técnico"
+      title: "No-Code Token Creation",
+      description: "Issue your own tokens in minutes, no technical knowledge required"
     },
     {
       icon: ShieldCheck,
-      title: "Conecte ativos reais (RWA)",
-      description: "Valide e tokenize ativos físicos com segurança e transparência"
+      title: "Connect Real-World Assets (RWA)",
+      description: "Validate and tokenize physical assets with security and transparency"
     },
     {
       icon: TrendingUp,
-      title: "Negocie e acompanhe rendimentos",
-      description: "Mercado secundário P2P e dashboard completo de análises"
+      title: "Trade and Track Performance",
+      description: "P2P secondary market and a complete analytics dashboard"
     }
   ];
 
@@ -32,13 +32,13 @@ const Landing = () => {
           <img src={logo} alt="SolAssets Logo" className="h-10" />
           <nav className="hidden md:flex items-center gap-6">
             <a href="#features" className="text-foreground/80 hover:text-primary transition-colors">
-              Recursos
+              Features
             </a>
             <a href="#how-it-works" className="text-foreground/80 hover:text-primary transition-colors">
-              Como funciona
+              How it works
             </a>
             <Link to="/auth">
-              <Button variant="outline">Entrar</Button>
+              <Button variant="outline">Sign In</Button>
             </Link>
           </nav>
         </div>
@@ -50,29 +50,29 @@ const Landing = () => {
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="animate-fade-in">
               <h2 className="text-5xl md:text-6xl font-bold mb-6 leading-tight">
-                Tokenize qualquer ativo em{" "}
+                Tokenize any asset in{" "}
                 <span className="bg-gradient-primary bg-clip-text text-transparent">
-                  minutos
+                  minutes
                 </span>
               </h2>
               <p className="text-xl text-muted-foreground mb-8">
-                Crie, gerencie e negocie tokens de ativos reais com segurança e transparência on-chain no ecossistema Solana
+                Create, manage, and trade real-world asset tokens with on-chain security and transparency in the Solana ecosystem.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link to="/auth">
                   <Button variant="hero" size="lg" className="w-full sm:w-auto">
-                    Conectar Carteira
+                    Connect Wallet
                   </Button>
                 </Link>
                 <Button variant="outline" size="lg" className="w-full sm:w-auto">
-                  Ver demonstração
+                  View Demo
                 </Button>
               </div>
             </div>
             <div className="relative animate-slide-up">
               <img
                 src={heroImage}
-                alt="Tokenização de ativos"
+                alt="Asset tokenization"
                 className="rounded-2xl shadow-card"
               />
               <div className="absolute -bottom-6 -left-6 bg-card/80 backdrop-blur-sm p-4 rounded-xl border border-border">
@@ -91,10 +91,10 @@ const Landing = () => {
         <div className="container mx-auto">
           <div className="text-center mb-16">
             <h3 className="text-4xl font-bold mb-4">
-              Tokenização sem complexidade
+              Tokenization Made Simple
             </h3>
             <p className="text-xl text-muted-foreground">
-              Tudo que você precisa para emitir, gerenciar e negociar tokens
+              Everything you need to issue, manage, and trade tokens
             </p>
           </div>
           <div className="grid md:grid-cols-3 gap-8">
@@ -120,17 +120,17 @@ const Landing = () => {
         <div className="container mx-auto">
           <div className="text-center mb-16">
             <h3 className="text-4xl font-bold mb-4">
-              Como funciona
+              How It Works
             </h3>
             <p className="text-xl text-muted-foreground">
-              Três passos simples para começar
+              Three simple steps to get started
             </p>
           </div>
           <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
             {[
-              { step: "01", title: "Conecte sua wallet", description: "Phantom, Solflare ou Backpack" },
-              { step: "02", title: "Crie seu token", description: "Configure e emita em minutos" },
-              { step: "03", title: "Gerencie e negocie", description: "Dashboard completo e mercado P2P" }
+              { step: "01", title: "Connect your wallet", description: "Phantom, Solflare, or Backpack" },
+              { step: "02", title: "Create your token", description: "Configure and issue in minutes" },
+              { step: "03", title: "Manage and trade", description: "Full dashboard and P2P marketplace" }
             ].map((item, index) => (
               <div key={index} className="text-center">
                 <div className="text-6xl font-bold text-primary/20 mb-4">{item.step}</div>
@@ -147,14 +147,14 @@ const Landing = () => {
         <div className="container mx-auto">
           <Card className="p-12 bg-gradient-primary text-primary-foreground text-center border-0">
             <h3 className="text-4xl font-bold mb-4">
-              Pronto para começar?
+              Ready to get started?
             </h3>
             <p className="text-xl mb-8 opacity-90">
-              Junte-se aos pioneiros da tokenização de ativos reais
+              Join the pioneers of real-world asset tokenization
             </p>
             <Link to="/auth">
               <Button variant="gold" size="lg">
-                Conectar Carteira
+                Connect Wallet
               </Button>
             </Link>
           </Card>
