@@ -38,9 +38,9 @@ interface Token {
   id: string;
   name: string;
   tag: string;
-  type: 'Fungível' | 'Não-fungível';
+  type: 'Fungible' | 'Non-Fungible';
   quantity: number;
-  status: 'Ativo' | 'Pendente' | 'Falhou';
+  status: 'Active' | 'Pending' | 'Failed';
   created_at: string;
   profiles: {
     full_name: string;
@@ -76,12 +76,12 @@ const Market = () => {
 
   const handleSubmitOrder = async () => {
     if (!connected || !publicKey) {
-      toast.error("Conecte sua carteira para criar ordens P2P.");
+      toast.error("Connect your wallet to create P2P orders.");
       return;
     }
 
     if (!mintAddress.trim() || !recipientAddress.trim() || !transferAmount.trim()) {
-      toast.error("Preencha todas as informações da ordem.");
+      toast.error("Please fill in all order information.");
       return;
     }
 
@@ -92,14 +92,14 @@ const Market = () => {
       mint = new PublicKey(mintAddress.trim());
       recipient = new PublicKey(recipientAddress.trim());
     } catch (error) {
-      toast.error("Endereço inválido.", {
-        description: "Verifique o mint e a carteira de destino informados.",
+      toast.error("Invalid address.", {
+        description: "Please check the provided mint and destination wallet addresses.",
       });
       return;
     }
 
     if (recipient.equals(publicKey)) {
-      toast.error("Informe uma carteira de destino diferente da sua.");
+      toast.error("Please provide a destination wallet different from your own.");
       return;
     }
 
@@ -111,11 +111,11 @@ const Market = () => {
 
       const amountNumber = Number(amountBase);
       if (!Number.isFinite(amountNumber) || amountNumber <= 0) {
-        throw new Error("Quantidade inválida para transferência.");
+        throw new Error("Invalid amount for transfer.");
       }
 
       if (amountNumber > Number.MAX_SAFE_INTEGER) {
-        throw new Error("Quantidade muito alta para ser processada.");
+        throw new Error("Amount too high to be processed.");
       }
 
       const sourceAta = await getAssociatedTokenAddress(
@@ -135,7 +135,7 @@ const Market = () => {
 
       const senderAccount = await connection.getAccountInfo(sourceAta, "confirmed");
       if (!senderAccount) {
-        throw new Error("Conta de origem não encontrada. Confirme se você possui esse token.");
+        throw new Error("Source account not found. Please confirm you own this token.");
       }
 
       const instructions: TransactionInstruction[] = [];
@@ -174,13 +174,13 @@ const Market = () => {
       await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, "confirmed");
 
       setLastSignature(signature);
-      toast.success("Transferência P2P enviada!", {
+      toast.success("P2P transfer sent successfully!", {
         description: `Explorer: ${EXPLORER_BASE_URL}/tx/${signature}?cluster=devnet`,
       });
       handleOrderDialogChange(false);
     } catch (error) {
-      console.error("Erro ao criar ordem P2P:", error);
-      toast.error("Falha ao enviar a transação.", {
+      console.error("Error creating P2P order:", error);
+      toast.error("Failed to send transaction.", {
         description: describeError(error),
       });
     } finally {
@@ -212,10 +212,16 @@ const Market = () => {
 
         if (error) throw error;
 
-        setTokens((data ?? []) as Token[]);
+        const translatedTokens = (data ?? []).map(token => ({
+          ...token,
+          type: token.type === 'Fungível' ? 'Fungible' : 'Non-Fungible',
+          status: token.status === 'Ativo' ? 'Active' : token.status === 'Pendente' ? 'Pending' : 'Failed',
+        })) as Token[];
+
+        setTokens(translatedTokens);
       } catch (error) {
-        console.error("Erro ao buscar tokens do mercado:", error);
-        toast.error("Falha ao carregar o mercado.", { description: describeError(error) });
+        console.error("Error fetching market tokens:", error);
+        toast.error("Failed to load market.", { description: describeError(error) });
       } finally {
         setIsLoading(false);
       }
@@ -230,52 +236,52 @@ const Market = () => {
       <Dialog open={isOrderOpen} onOpenChange={handleOrderDialogChange}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Criar ordem P2P</DialogTitle>
+            <DialogTitle>Create P2P Order</DialogTitle>
             <DialogDescription>
-              Defina o token, a carteira de destino e a quantidade para transferir direto na blockchain.
+              Set the token, destination wallet, and amount to transfer directly on the blockchain.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="mint-address">Mint address do token</Label>
+              <Label htmlFor="mint-address">Token Mint Address</Label>
               <Input
                 id="mint-address"
-                placeholder="Ex: 4Nd1m..."
+                placeholder="E.g., 4Nd1m..."
                 value={mintAddress}
                 onChange={(event) => setMintAddress(event.target.value)}
                 className="bg-background/60"
               />
               <p className="text-xs text-muted-foreground">
-                Utilize o endereço do mint do token que deseja negociar.
+                Use the mint address of the token you wish to trade.
               </p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="recipient-address">Carteira do destinatário</Label>
+              <Label htmlFor="recipient-address">Recipient Wallet</Label>
               <Input
                 id="recipient-address"
-                placeholder="Wallet do comprador"
+                placeholder="Buyer's wallet"
                 value={recipientAddress}
                 onChange={(event) => setRecipientAddress(event.target.value)}
                 className="bg-background/60"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="order-amount">Quantidade</Label>
+              <Label htmlFor="order-amount">Amount</Label>
               <Input
                 id="order-amount"
-                placeholder="Ex: 1000.5"
+                placeholder="E.g., 1000.5"
                 value={transferAmount}
                 onChange={(event) => setTransferAmount(event.target.value)}
                 className="bg-background/60"
                 inputMode="decimal"
               />
               <p className="text-xs text-muted-foreground">
-                Valores com ponto decimal são convertidos conforme os decimais do mint.
+                Values with a decimal point are converted according to the mint's decimals.
               </p>
             </div>
             {publicKey && (
               <div className="rounded-lg border border-border/60 bg-muted/10 p-3 text-xs text-muted-foreground break-all">
-                Carteira emissora: {publicKey.toBase58()}
+                Sender wallet: {publicKey.toBase58()}
               </div>
             )}
           </div>
@@ -285,14 +291,14 @@ const Market = () => {
               onClick={() => handleOrderDialogChange(false)}
               disabled={isSubmittingOrder}
             >
-              Cancelar
+              Cancel
             </Button>
             <Button
               variant="hero"
               onClick={handleSubmitOrder}
               disabled={isSubmittingOrder || !connected}
             >
-              {isSubmittingOrder ? "Enviando..." : "Enviar ordem"}
+              {isSubmittingOrder ? "Sending..." : "Send Order"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -300,28 +306,28 @@ const Market = () => {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-3xl font-bold mb-2">Mercado de Tokens</h2>
-            <p className="text-muted-foreground">Explore todos os tokens criados na plataforma</p>
+            <h2 className="text-3xl font-bold mb-2">Token Market</h2>
+            <p className="text-muted-foreground">Explore all tokens created on the platform</p>
           </div>
           <Button
             variant="hero"
             onClick={() => handleOrderDialogChange(true)}
             disabled={!connected}
           >
-            Criar Ordem de Negociação
+            Create Trade Order
           </Button>
         </div>
 
         {!connected && (
           <Card className="p-4 border-dashed border-primary/40 bg-card/40 text-sm text-muted-foreground">
-            Conecte sua carteira para negociar tokens P2P.
+            Connect your wallet to trade P2P tokens.
           </Card>
         )}
 
         {lastSignature && (
           <Card className="p-4 bg-card/40 border-border/70 text-sm">
             <div className="flex flex-col gap-1">
-              <span className="font-medium">Última transferência enviada</span>
+              <span className="font-medium">Last transfer sent</span>
               <a
                 href={`${EXPLORER_BASE_URL}/tx/${lastSignature}?cluster=devnet`}
                 target="_blank"
@@ -335,15 +341,14 @@ const Market = () => {
         )}
 
         <div className="grid gap-6 md:grid-cols-3">
-          {/* ... cards de estatísticas ... */}
         </div>
 
         <Card className="p-6 bg-card/50 backdrop-blur-sm border-border">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-semibold">Tokens Disponíveis</h3>
+            <h3 className="text-xl font-semibold">Available Tokens</h3>
             <Button variant="outline" size="sm">
               <ExternalLink className="mr-2 h-4 w-4" />
-              Ver no Explorer
+              View on Explorer
             </Button>
           </div>
 
@@ -353,18 +358,18 @@ const Market = () => {
                 <tr className="border-b border-border">
                   <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Token</th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Tag</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Tipo</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Quantidade</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Type</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Quantity</th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Criador</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Ação</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Creator</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {isLoading ? (
-                  <tr><td colSpan={7} className="text-center py-8">Carregando mercado...</td></tr>
+                  <tr><td colSpan={7} className="text-center py-8">Loading market...</td></tr>
                 ) : tokens.length === 0 ? (
-                  <tr><td colSpan={7} className="text-center py-8 text-muted-foreground">Nenhum token no mercado ainda.</td></tr>
+                  <tr><td colSpan={7} className="text-center py-8 text-muted-foreground">No tokens on the market yet.</td></tr>
                 ) : (
                   tokens.map((token) => (
                     <tr key={token.id} className="border-b border-border last:border-0 hover:bg-muted/50 transition-colors">
@@ -376,26 +381,26 @@ const Market = () => {
                       <td className="py-4 px-4">{token.quantity.toLocaleString()}</td>
                       <td className="py-4 px-4">
                         <div className="flex items-center gap-2">
-                            {token.status === "Ativo" ? (
+                          {token.status === "Active" ? (
                             <>
-                                <CheckCircle2 className="w-4 h-4 text-secondary" />
-                                <span className="text-secondary">{token.status}</span>
+                              <CheckCircle2 className="w-4 h-4 text-secondary" />
+                              <span className="text-secondary">{token.status}</span>
                             </>
-                            ) : token.status === 'Pendente' ? (
+                          ) : token.status === 'Pending' ? (
                             <>
-                                <Clock className="w-4 h-4 text-gold" />
-                                <span className="text-gold">{token.status}</span>
+                              <Clock className="w-4 h-4 text-gold" />
+                              <span className="text-gold">{token.status}</span>
                             </>
-                            ) : (
+                          ) : (
                             <>
-                                <AlertCircle className="w-4 h-4 text-destructive" />
-                                <span className="text-destructive">{token.status}</span>
+                              <AlertCircle className="w-4 h-4 text-destructive" />
+                              <span className="text-destructive">{token.status}</span>
                             </>
-                            )}
+                          )}
                         </div>
                       </td>
                       <td className="py-4 px-4 text-sm text-muted-foreground" title={token.profiles?.wallet_address ?? undefined}>
-                        {token.profiles?.full_name || 'Desconhecido'}
+                        {token.profiles?.full_name || 'Unknown'}
                       </td>
                       <td className="py-4 px-4">
                         <Button
@@ -404,7 +409,7 @@ const Market = () => {
                           onClick={() => handleOrderDialogChange(true)}
                           disabled={!connected}
                         >
-                          Negociar
+                          Trade
                         </Button>
                       </td>
                     </tr>
