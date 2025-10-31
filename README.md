@@ -29,7 +29,6 @@ The project provides a user-friendly dApp and a powerful Anchor-based smart cont
   - [Prerequisites](#prerequisites)
   - [On-Chain Program Setup](#on-chain-program-setup)
   - [Frontend Setup](#frontend-setup)
-- [License](#-license)
 - [Community](#-community)
 
 ---
@@ -149,7 +148,7 @@ To get a local copy up and running, follow these steps.
     
 4.  **Run the development server:**
     ```sh
-    npm dev
+    npm run dev
     ```
     
 5.  Open [http://localhost:8080](http://localhost:8080) (or your configured port) in your browser.
