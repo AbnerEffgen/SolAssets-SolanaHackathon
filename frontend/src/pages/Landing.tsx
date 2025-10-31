@@ -1,10 +1,13 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Coins, ShieldCheck, TrendingUp, Wallet, LineChart } from "lucide-react";
+import {
+  Coins, ShieldCheck, TrendingUp, LineChart
+} from "lucide-react";
 import { Link } from "react-router-dom";
 import heroImage from "@/assets/hero-tokenization.jpg";
 import logo from "@/assets/logo.svg";
 import { WavyBackground } from "@/components/ui/background";
+import { SocialIcon } from 'react-social-icons'
 
 const Landing = () => {
   const features = [
@@ -34,10 +37,18 @@ const Landing = () => {
         blur={5}
       />
       {/* Header */}
-      <header className="fixed top-0 w-full z-50 backdrop-blur-md bg-black border-b border-neutral-800">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <img src={logo} alt="SolAssets Logo" className="h-10" />
-          <nav className="hidden md:flex items-center gap-6">
+      <header className="fixed top-0 w-full z-50 backdrop-blur-md bg-black/50 border-b border-neutral-800">
+        <div className="container mx-auto px-4 py-4 grid grid-cols-3 items-center">
+          <div className="flex justify-start">
+            <img src={logo} alt="SolAssets Logo" className="h-10" />
+          </div>
+          <div className="hidden md:flex items-center justify-center gap-4">
+            <SocialIcon url="https://x.com/Sol_Assets" fgColor="white" bgColor="transparent" style={{ height: 32, width: 32 }} />
+            <SocialIcon url="https://discord.gg/pZzcwDe56H" fgColor="white" bgColor="transparent" style={{ height: 32, width: 32 }} />
+            <SocialIcon url="https://github.com/AbnerEffgen/SolAssets-SolanaHackathon" fgColor="white" bgColor="transparent" style={{ height: 32, width: 32 }} />
+            <SocialIcon url="https://t.me/+_ek3UETcpXlhMTdh" fgColor="white" bgColor="transparent" style={{ height: 32, width: 32 }} />
+          </div>
+          <nav className="hidden md:flex items-center justify-end gap-6">
             <a href="#features" className="text-foreground/80 hover:text-primary transition-colors">
               Features
             </a>
@@ -170,24 +181,16 @@ const Landing = () => {
 
       {/* Footer */}
       <footer className="border-t border-border py-8 px-4">
-        <div className="container mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="container mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
           <img src={logo} alt="SolAssets Logo" className="h-8" />
           <p className="text-sm text-muted-foreground">
             Powered by Solana
           </p>
-          <div className="flex gap-6">
-            <a href="https://x.com/Sol_Assets" className="text-muted-foreground hover:text-primary transition-colors">
-              Twitter
-            </a>
-            <a href="https://discord.gg/pZzcwDe56H" className="text-muted-foreground hover:text-primary transition-colors">
-              Discord
-            </a>
-            <a href="https://github.com/AbnerEffgen/SolAssets-SolanaHackathon" className="text-muted-foreground hover:text-primary transition-colors">
-              GitHub
-            </a>
-            <a href="https://t.me/+_ek3UETcpXlhMTdh" className="text-muted-foreground hover:text-primary transition-colors">
-              Telegram
-            </a>
+          <div className="flex items-center justify-center gap-4">
+            <SocialIcon url="https://x.com/Sol_Assets" fgColor="gray" bgColor="transparent" style={{ height: 28, width: 28 }} />
+            <SocialIcon url="https://discord.gg/pZzcwDe56H" fgColor="gray" bgColor="transparent" style={{ height: 28, width: 28 }} />
+            <SocialIcon url="https://github.com/AbnerEffgen/SolAssets-SolanaHackathon" fgColor="gray" bgColor="transparent" style={{ height: 28, width: 28 }} />
+            <SocialIcon url="https://t.me/+_ek3UETcpXlhMTdh" fgColor="gray" bgColor="transparent" style={{ height: 28, width: 28 }} />
           </div>
         </div>
       </footer>
