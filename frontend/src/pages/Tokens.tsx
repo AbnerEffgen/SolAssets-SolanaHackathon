@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -38,6 +38,7 @@ const Tokens = () => {
   const [tokenType, setTokenType] = useState<NewToken['type'] | "">("");
   const { publicKey, connected } = useWallet();
   const program = useHackaProgram();
+  const formRef = useRef<HTMLFormElement>(null);
 
   // Fetch user profile and their tokens
   useEffect(() => {
@@ -95,6 +96,7 @@ const Tokens = () => {
       return;
     }
 
+    setIsCreating(true);
     const formData = new FormData(e.currentTarget);
 
     const name = (formData.get("token-name") as string)?.trim();
@@ -149,8 +151,6 @@ const Tokens = () => {
       setIsCreating(false);
       return;
     }
-
-    setIsCreating(true);
 
     const mintKeypair = Keypair.generate();
 
@@ -222,8 +222,10 @@ const Tokens = () => {
         description: `Explorer: ${EXPLORER_BASE_URL}/tx/${transactionSignature}?cluster=devnet`,
       });
       setExistingTokens((prev) => [data, ...prev]);
-      e.currentTarget.reset();
+
+      formRef.current?.reset();
       setTokenType("");
+
     } catch (error) {
       console.error("Error saving token to Supabase:", error);
       toast.warning("Token created on-chain, but failed to save to Supabase.", {
@@ -254,7 +256,7 @@ const Tokens = () => {
               <DialogHeader>
                 <DialogTitle className="text-2xl">Mint New Token</DialogTitle>
               </DialogHeader>
-              <form onSubmit={handleCreateToken} className="space-y-4 mt-4">
+              <form ref={formRef} onSubmit={handleCreateToken} className="space-y-4 mt-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="token-name">Token Name</Label>
