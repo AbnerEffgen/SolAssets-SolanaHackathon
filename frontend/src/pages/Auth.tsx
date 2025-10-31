@@ -59,7 +59,7 @@ const Auth = () => {
 
             if (profile && profile.full_name) {
               toast.success("Successfully authenticated!", { id: loadingToastId });
-              navigate("/dashboard");
+              navigate("/home");
             } else {
               toast.info("Please complete your profile to continue.", { id: loadingToastId });
               navigate("/create-profile");
