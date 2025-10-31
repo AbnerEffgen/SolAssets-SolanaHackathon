@@ -278,7 +278,7 @@ const Governance = () => {
             </p>
           </div>
 
-          {isOwner && (
+          {true && (
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
                 <Button variant="hero">
