@@ -176,14 +176,17 @@ const Landing = () => {
             Powered by Solana
           </p>
           <div className="flex gap-6">
-            <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
+            <a href="https://x.com/Sol_Assets" className="text-muted-foreground hover:text-primary transition-colors">
               Twitter
             </a>
-            <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
+            <a href="https://discord.gg/pZzcwDe56H" className="text-muted-foreground hover:text-primary transition-colors">
               Discord
             </a>
-            <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
+            <a href="https://github.com/AbnerEffgen/SolAssets-SolanaHackathon" className="text-muted-foreground hover:text-primary transition-colors">
               GitHub
+            </a>
+            <a href="https://t.me/+_ek3UETcpXlhMTdh" className="text-muted-foreground hover:text-primary transition-colors">
+              Telegram
             </a>
           </div>
         </div>
