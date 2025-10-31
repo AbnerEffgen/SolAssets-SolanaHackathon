@@ -7,7 +7,7 @@
 [![Deployed Contract](https://img.shields.io/badge/View_Contract-Devnet-purple?style=for-the-badge&logo=solana)](https://solscan.io/account/7i8DEgM1A7UuQyTSC9tofxmBFxu6rEYJxHbA1sA5ZMwm?cluster=devnet)
 [![GitHub](https://img.shields.io/badge/View-GitHub-black?style=for-the-badge&logo=github)](https://github.com/AbnerEffgen/SolAssets-SolanaHackathon)
 [![Project Pitch](https://img.shields.io/badge/Project-Pitch-red?style=for-the-badge&logo=youtube)](https://youtu.be/ivpEU7tbcZg)
-[![Demonstration](https://img.shields.io/badge/dApp_Demonstration-red?style=for-the-badge&logo=youtube)](https://youtu.be/W8c08CH6ppE)
+[![Demonstration](https://img.shields.io/badge/dApp_Demonstration-red?style=for-the-badge&logo=youtube)](https://youtu.be/Ymy3aIgvO3A)
 
 [![Twitter](https://img.shields.io/badge/Follow-Twitter-blue?style=for-the-badge&logo=x)](https://x.com/Sol_Assets)
 [![Discord](https://img.shields.io/badge/Join-Discord-7289DA?style=for-the-badge&logo=discord)](https://discord.gg/pZzcwDe56H)
