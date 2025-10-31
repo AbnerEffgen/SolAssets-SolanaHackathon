@@ -149,12 +149,13 @@ export const RwaDetailsDialog = ({
     }
   }, [asset]);
 
-  const hasStatusChanges = asset
-    ? statusDraft !== asset.status ||
-      (statusDraft === "Rejeitado" // Logic uses PT enum
-        ? trimmedReason !== (asset.rejection_reason ?? "")
-        : Boolean(asset.rejection_reason))
-    : false;
+  // const hasStatusChanges = asset
+  //   ? statusDraft !== asset.status ||
+  //   (statusDraft === "Rejeitado" // Logic uses PT enum
+  //     ? trimmedReason !== (asset.rejection_reason ?? "")
+  //     : Boolean(asset.rejection_reason))
+  //   : false;
+  const hasStatusChanges = false; // Status changes are disabled for now
 
   const hasChanges = hasStatusChanges || Boolean(selectedFile);
 
@@ -165,30 +166,30 @@ export const RwaDetailsDialog = ({
     let assetAfterUpdate = asset;
     let success = true;
 
-    // 1. Save status changes, if any
-    if (hasStatusChanges) {
-      if (statusDraft === "Rejeitado" && trimmedReason.length < 3) { // Logic uses PT enum
-        toast.error("Please provide a rejection reason with at least 3 characters.");
-        setIsSaving(false);
-        return;
-      }
+    // // 1. Save status changes, if any
+    // if (hasStatusChanges) {
+    //   if (statusDraft === "Rejeitado" && trimmedReason.length < 3) { // Logic uses PT enum
+    //     toast.error("Please provide a rejection reason with at least 3 characters.");
+    //     setIsSaving(false);
+    //     return;
+    //   }
 
-      const payload: UpdateRwaAssetStatusInput = {
-        assetId: asset.id,
-        status: statusDraft,
-        rejection_reason: statusDraft === "Rejeitado" ? trimmedReason : null, // Logic uses PT enum
-      };
+    //   const payload: UpdateRwaAssetStatusInput = {
+    //     assetId: asset.id,
+    //     status: statusDraft,
+    //     rejection_reason: statusDraft === "Rejeitado" ? trimmedReason : null, // Logic uses PT enum
+    //   };
 
-      try {
-        assetAfterUpdate = await updateRwaAssetStatus(payload);
-        toast.success("Status updated successfully!");
-      } catch (err) {
-        success = false;
-        toast.error("Could not update status.", {
-          description: describeError(err),
-        });
-      }
-    }
+    //   try {
+    //     assetAfterUpdate = await updateRwaAssetStatus(payload);
+    //     toast.success("Status updated successfully!");
+    //   } catch (err) {
+    //     success = false;
+    //     toast.error("Could not update status.", {
+    //       description: describeError(err),
+    //     });
+    //   }
+    // }
 
     // 2. Upload the document, if present and the previous step succeeded
     if (selectedFile && success) {
@@ -245,7 +246,7 @@ export const RwaDetailsDialog = ({
                       </span>
                     </div>
                   </div>
-                  <div className="w-full md:w-60">
+                  {/* <div className="w-full md:w-60">
                     <Select
                       value={statusDraft}
                       onValueChange={(value) => setStatusDraft(value as AssetStatus)}
@@ -262,10 +263,10 @@ export const RwaDetailsDialog = ({
                         ))}
                       </SelectContent>
                     </Select>
-                  </div>
+                  </div> */}
                 </div>
 
-                {statusDraft === "Rejeitado" && ( // Logic uses PT enum
+                {/* {statusDraft === "Rejeitado" && ( // Logic uses PT enum
                   <div className="space-y-2">
                     <p className="text-sm font-medium text-muted-foreground">Rejection Reason</p>
                     <Textarea
@@ -279,7 +280,7 @@ export const RwaDetailsDialog = ({
                       This message will be displayed to the team responsible for the asset.
                     </p>
                   </div>
-                )}
+                )} */}
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="rounded-lg border border-border/60 bg-muted/10 p-4 space-y-2">

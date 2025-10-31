@@ -34,10 +34,8 @@ import {
 import { FileUpload } from "./file-upload";
 import { Wallet } from "lucide-react";
 
-// NOTE: These values correspond to the database enum and should not be translated.
 const assetStatusOptions = ["Pendente", "Em Análise", "Aprovado", "Rejeitado"] as const;
 
-// Helper function to translate status for display
 const translateStatus = (status: string): string => {
   switch (status) {
     case "Pendente":
@@ -59,12 +57,9 @@ const formSchema = z.object({
     .string()
     .min(3, "Please provide the token code.")
     .max(15, "The code can have a maximum of 15 characters."),
-  status: z.enum(assetStatusOptions, {
-    errorMap: () => ({ message: "Please select a valid status." }),
-  }),
   location: z.string().max(120, "Maximum 120 characters.").optional(),
-  valuation: z.string().optional(), // Using string for flexible input
-  yieldRate: z.string().optional(), // Using string for flexible input
+  valuation: z.string().optional(),
+  yieldRate: z.string().optional(),
   description: z.string().max(500, "Maximum 500 characters.").optional(),
   documentRequirements: z.string().max(500, "Maximum 500 characters.").optional(),
 });
@@ -74,7 +69,6 @@ export type RwaFormValues = z.infer<typeof formSchema>;
 const formDefaultValues: Omit<RwaFormValues, "ownerWallet"> = {
   name: "",
   tokenCode: "",
-  status: "Pendente", // Default enum value
   location: "",
   valuation: "",
   yieldRate: "",
@@ -125,7 +119,7 @@ export const RwaCreateAssetForm = ({
 
   const handleNextStep = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    const fieldsToValidate: (keyof RwaFormValues)[] = ["name", "tokenCode", "status"];
+    const fieldsToValidate: (keyof RwaFormValues)[] = ["name", "tokenCode"];
     const isValid = await form.trigger(fieldsToValidate);
     if (isValid) {
       setFormStep(2);
@@ -212,30 +206,6 @@ export const RwaCreateAssetForm = ({
                   <div className="grid gap-4 md:grid-cols-2">
                     <FormField
                       control={form.control}
-                      name="status"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Initial Status</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
-                              <SelectTrigger className="bg-background/60">
-                                <SelectValue placeholder="Select status" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {assetStatusOptions.map((status) => (
-                                <SelectItem key={status} value={status}>
-                                  {translateStatus(status)}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
                       name="location"
                       render={({ field }) => (
                         <FormItem>
@@ -251,9 +221,6 @@ export const RwaCreateAssetForm = ({
                         </FormItem>
                       )}
                     />
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-2">
                     <FormField
                       control={form.control}
                       name="valuation"
@@ -273,6 +240,9 @@ export const RwaCreateAssetForm = ({
                         </FormItem>
                       )}
                     />
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
                     <FormField
                       control={form.control}
                       name="yieldRate"

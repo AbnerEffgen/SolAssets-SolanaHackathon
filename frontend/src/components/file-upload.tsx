@@ -24,7 +24,7 @@ export const FileUpload = ({
   disabled = false,
   label,
   accept = "image/png, image/jpeg, application/pdf",
-  helpText = "Permitido: PNG, JPG, PDF. Tamanho máximo: 15MB.",
+  helpText = "Allowed: PNG, JPG, PDF. Max size: 15MB.",
 }: FileUploadProps) => {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -50,7 +50,7 @@ export const FileUpload = ({
           ) : (
             <>
               <Upload className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
-              <span className="text-muted-foreground">Nenhum arquivo selecionado</span>
+              <span className="text-muted-foreground">No file selected</span>
             </>
           )}
         </div>
@@ -66,7 +66,7 @@ export const FileUpload = ({
               className="h-8"
             >
               <Trash2 className="mr-2 h-4 w-4" />
-              Remover
+              Remove
             </Button>
           ) : (
             <Button
@@ -78,7 +78,7 @@ export const FileUpload = ({
               className="h-8"
             >
               <Upload className="mr-2 h-4 w-4" />
-              Escolher
+              Choose
             </Button>
           )}
         </div>
@@ -90,7 +90,7 @@ export const FileUpload = ({
         onChange={onFileChange}
         accept={accept}
         disabled={disabled}
-        className="sr-only" // Oculta o input visualmente, mas o mantém funcional
+        className="sr-only" // Visually hide the input but keep it functional
       />
       {helpText && <p className="text-xs text-muted-foreground">{helpText}</p>}
     </div>
