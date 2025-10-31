@@ -1,6 +1,6 @@
 # --- Estágio 1: Geração de Tipos do Supabase ---
-# Usa a imagem oficial da CLI do Supabase para gerar os tipos.
-FROM supabase/cli:latest AS typegen
+# Usa a imagem oficial da CLI do Supabase do GitHub Container Registry.
+FROM ghcr.io/supabase/cli:latest AS typegen
 
 # Argumento de build para o ID do projeto, que será passado pelo Railway.
 ARG SUPABASE_PROJECT_ID
