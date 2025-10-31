@@ -8,7 +8,7 @@ import {
   CheckCircle2,
   Clock,
   AlertCircle,
-  ArrowLeft, 
+  ArrowLeft,
 } from "lucide-react";
 import { useHackaProgram } from "@/hooks/useHackaProgram";
 import { fetchRwaAssets, RwaAsset } from "@/integrations/supabase/rwa";
@@ -27,7 +27,7 @@ import {
 } from "recharts";
 import { Database } from "@/integrations/supabase/types";
 import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom"; 
+import { useNavigate } from "react-router-dom";
 
 type Token = Database["public"]["Tables"]["tokens"]["Row"];
 
@@ -63,12 +63,12 @@ const MyDashboard = () => {
 
   const program = useHackaProgram();
   const wallet = useAnchorWallet();
-  const navigate = useNavigate(); 
+  const navigate = useNavigate();
 
   useEffect(() => {
     const loadMyDashboardData = async () => {
       if (!wallet || !wallet.publicKey) {
-        setError("Please connect your wallet to view your dashboard."); 
+        setError("Please connect your wallet to view your dashboard.");
         setLoading(false);
         return;
       }
@@ -124,8 +124,8 @@ const MyDashboard = () => {
         });
       } catch (err) {
         console.error("Failed to load user dashboard data:", err);
-        setError("Failed to load your dashboard data."); 
-        toast.error("Error loading data", { description: describeError(err) }); 
+        setError("Failed to load your dashboard data.");
+        toast.error("Error loading data", { description: describeError(err) });
       } finally {
         setLoading(false);
       }
@@ -213,7 +213,7 @@ const MyDashboard = () => {
                       tickFormatter={(str) => {
                         const date = new Date(str);
                         date.setDate(date.getDate() + 1);
-                        return date.toLocaleDateString("en-US", { 
+                        return date.toLocaleDateString("en-US", {
                           day: "numeric",
                           month: "short",
                         });
@@ -233,7 +233,7 @@ const MyDashboard = () => {
                         borderRadius: "0.5rem",
                       }}
                       labelFormatter={(label) =>
-                        new Date(label).toLocaleDateString("en-US", { 
+                        new Date(label).toLocaleDateString("en-US", {
                           day: "2-digit",
                           month: "long",
                           year: "numeric",
@@ -349,7 +349,7 @@ const MyDashboard = () => {
                               target="_blank"
                               rel="noopener noreferrer"
                             >
-                              Explorer
+                              View details
                             </a>
                           </Button>
                         ) : (
