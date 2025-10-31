@@ -34,22 +34,39 @@ import {
 import { FileUpload } from "./file-upload";
 import { Wallet } from "lucide-react";
 
+// NOTE: These values correspond to the database enum and should not be translated.
 const assetStatusOptions = ["Pendente", "Em Análise", "Aprovado", "Rejeitado"] as const;
 
+// Helper function to translate status for display
+const translateStatus = (status: string): string => {
+  switch (status) {
+    case "Pendente":
+      return "Pending";
+    case "Em Análise":
+      return "In Review";
+    case "Aprovado":
+      return "Approved";
+    case "Rejeitado":
+      return "Rejected";
+    default:
+      return status;
+  }
+};
+
 const formSchema = z.object({
-  name: z.string().min(3, "Informe o nome do ativo."),
+  name: z.string().min(3, "Please provide the asset name."),
   tokenCode: z
     .string()
-    .min(3, "Informe o código do token.")
-    .max(15, "O código pode ter no máximo 15 caracteres."),
+    .min(3, "Please provide the token code.")
+    .max(15, "The code can have a maximum of 15 characters."),
   status: z.enum(assetStatusOptions, {
-    errorMap: () => ({ message: "Selecione um status válido." }),
+    errorMap: () => ({ message: "Please select a valid status." }),
   }),
-  location: z.string().max(120, "Máximo de 120 caracteres.").optional(),
-  valuation: z.string().optional(),
-  yieldRate: z.string().optional(),
-  description: z.string().max(500, "Máximo de 500 caracteres.").optional(),
-  documentRequirements: z.string().max(500, "Máximo de 500 caracteres.").optional(),
+  location: z.string().max(120, "Maximum 120 characters.").optional(),
+  valuation: z.string().optional(), // Using string for flexible input
+  yieldRate: z.string().optional(), // Using string for flexible input
+  description: z.string().max(500, "Maximum 500 characters.").optional(),
+  documentRequirements: z.string().max(500, "Maximum 500 characters.").optional(),
 });
 
 export type RwaFormValues = z.infer<typeof formSchema>;
@@ -57,7 +74,7 @@ export type RwaFormValues = z.infer<typeof formSchema>;
 const formDefaultValues: Omit<RwaFormValues, "ownerWallet"> = {
   name: "",
   tokenCode: "",
-  status: "Pendente",
+  status: "Pendente", // Default enum value
   location: "",
   valuation: "",
   yieldRate: "",
@@ -113,7 +130,7 @@ export const RwaCreateAssetForm = ({
     if (isValid) {
       setFormStep(2);
     } else {
-      toast.error("Por favor, corrija os erros no formulário antes de prosseguir.");
+      toast.error("Please fix the errors in the form before proceeding.");
     }
   };
 
@@ -128,11 +145,11 @@ export const RwaCreateAssetForm = ({
     <Dialog open={isOpen} onOpenChange={handleDialogChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Novo ativo RWA</DialogTitle>
+          <DialogTitle>New RWA Asset</DialogTitle>
           <DialogDescription>
             {formStep === 1
-              ? "Cadastre as informações iniciais para iniciar a validação do ativo real."
-              : "Anexe um documento comprobatório. Este passo é opcional."}
+              ? "Register the initial information to start the real asset validation."
+              : "Attach a supporting document. This step is optional."}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -141,11 +158,11 @@ export const RwaCreateAssetForm = ({
               <ScrollArea className="max-h-[70vh] pr-6 -mr-6">
                 <div className="space-y-6 pr-2">
                   <div className="space-y-2">
-                    <Label>Carteira Responsável</Label>
+                    <Label>Responsible Wallet</Label>
                     <div className="relative">
                       <Wallet className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                       <Input
-                        value={ownerWallet ?? "Conecte sua carteira para continuar"}
+                        value={ownerWallet ?? "Connect your wallet to continue"}
                         disabled
                         className="pl-10 bg-muted/40"
                       />
@@ -158,10 +175,10 @@ export const RwaCreateAssetForm = ({
                       name="name"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Nome do ativo</FormLabel>
+                          <FormLabel>Asset Name</FormLabel>
                           <FormControl>
                             <Input
-                              placeholder="Fazenda São João"
+                              placeholder="St. John's Farm"
                               className="bg-background/60"
                               {...field}
                             />
@@ -175,7 +192,7 @@ export const RwaCreateAssetForm = ({
                       name="tokenCode"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Código do token</FormLabel>
+                          <FormLabel>Token Code</FormLabel>
                           <FormControl>
                             <Input
                               placeholder="AGR-001"
@@ -198,17 +215,17 @@ export const RwaCreateAssetForm = ({
                       name="status"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Status inicial</FormLabel>
+                          <FormLabel>Initial Status</FormLabel>
                           <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
                               <SelectTrigger className="bg-background/60">
-                                <SelectValue placeholder="Selecione o status" />
+                                <SelectValue placeholder="Select status" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
                               {assetStatusOptions.map((status) => (
                                 <SelectItem key={status} value={status}>
-                                  {status === "Em Análise" ? "Em análise" : status}
+                                  {translateStatus(status)}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -222,10 +239,10 @@ export const RwaCreateAssetForm = ({
                       name="location"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Localização</FormLabel>
+                          <FormLabel>Location</FormLabel>
                           <FormControl>
                             <Input
-                              placeholder="Município / Estado"
+                              placeholder="City / State"
                               className="bg-background/60"
                               {...field}
                             />
@@ -242,12 +259,12 @@ export const RwaCreateAssetForm = ({
                       name="valuation"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Valuation estimado (R$)</FormLabel>
+                          <FormLabel>Estimated Valuation ($)</FormLabel>
                           <FormControl>
                             <Input
                               type="text"
                               inputMode="decimal"
-                              placeholder="500.000,00"
+                              placeholder="500,000.00"
                               className="bg-background/60"
                               {...field}
                             />
@@ -261,12 +278,12 @@ export const RwaCreateAssetForm = ({
                       name="yieldRate"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Yield esperado (% a.a.)</FormLabel>
+                          <FormLabel>Expected Yield (% p.a.)</FormLabel>
                           <FormControl>
                             <Input
                               type="text"
                               inputMode="decimal"
-                              placeholder="8,50"
+                              placeholder="8.50"
                               className="bg-background/60"
                               {...field}
                             />
@@ -282,10 +299,10 @@ export const RwaCreateAssetForm = ({
                     name="description"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Descrição</FormLabel>
+                        <FormLabel>Description</FormLabel>
                         <FormControl>
                           <Textarea
-                            placeholder="Resumo do ativo, propósito da tokenização e outras observações."
+                            placeholder="Summary of the asset, purpose of tokenization, and other observations."
                             className="bg-background/60 min-h-24"
                             {...field}
                           />
@@ -302,7 +319,7 @@ export const RwaCreateAssetForm = ({
               <div className="space-y-4 py-8">
                 <FileUpload
                   id="document-upload-create"
-                  label="Anexar documento (Pode ser enviado depois)"
+                  label="Attach document (Can be sent later)"
                   selectedFile={selectedFile}
                   onFileChange={handleFileChange}
                   onFileClear={() => setSelectedFile(null)}
@@ -320,7 +337,7 @@ export const RwaCreateAssetForm = ({
                     onClick={() => handleDialogChange(false)}
                     disabled={isSubmitting}
                   >
-                    Cancelar
+                    Cancel
                   </Button>
                   <Button
                     type="button"
@@ -328,7 +345,7 @@ export const RwaCreateAssetForm = ({
                     onClick={handleNextStep}
                     disabled={!ownerWallet}
                   >
-                    Avançar
+                    Next
                   </Button>
                 </>
               ) : (
@@ -339,10 +356,10 @@ export const RwaCreateAssetForm = ({
                     onClick={() => setFormStep(1)}
                     disabled={isSubmitting}
                   >
-                    Voltar
+                    Back
                   </Button>
                   <Button type="submit" variant="hero" disabled={isSubmitting}>
-                    {isSubmitting ? "Salvando..." : "Cadastrar ativo"}
+                    {isSubmitting ? "Saving..." : "Register Asset"}
                   </Button>
                 </>
               )}

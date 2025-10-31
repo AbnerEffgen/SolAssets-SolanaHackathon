@@ -94,31 +94,32 @@ import type { Database, TablesInsert } from "@/integrations/supabase/types";
 
 type FilterValue = "all" | AssetStatus;
 
+// NOTE: These values correspond to the database enum and should not be translated.
 const assetStatusOptions = ["Pendente", "Em Análise", "Aprovado", "Rejeitado"] as const;
 
 const statusFilters: { value: FilterValue; label: string }[] = [
-  { value: "all", label: "Todos" },
-  { value: "Pendente", label: "Pendentes" },
-  { value: "Em Análise", label: "Em análise" },
-  { value: "Aprovado", label: "Aprovados" },
-  { value: "Rejeitado", label: "Rejeitados" },
+  { value: "all", label: "All" },
+  { value: "Pendente", label: "Pending" },
+  { value: "Em Análise", label: "In Review" },
+  { value: "Aprovado", label: "Approved" },
+  { value: "Rejeitado", label: "Rejected" },
 ];
 
 const formSchema = z.object({
-  name: z.string().min(3, "Informe o nome do ativo."),
+  name: z.string().min(3, "Please provide the asset name."),
   tokenCode: z
     .string()
-    .min(3, "Informe o código do token.")
-    .max(15, "O código pode ter no máximo 15 caracteres."),
+    .min(3, "Please provide the token code.")
+    .max(15, "The code can have a maximum of 15 characters."),
   status: z.enum(assetStatusOptions, {
-    errorMap: () => ({ message: "Selecione um status válido." }),
+    errorMap: () => ({ message: "Please select a valid status." }),
   }),
-  location: z.string().max(120, "Máximo de 120 caracteres.").optional(),
+  location: z.string().max(120, "Maximum 120 characters.").optional(),
   valuation: z.string().optional(),
   yieldRate: z.string().optional(),
-  description: z.string().max(500, "Máximo de 500 caracteres.").optional(),
-  documentRequirements: z.string().max(500, "Máximo de 500 caracteres.").optional(),
-  ownerWallet: z.string().max(120, "Máximo de 120 caracteres.").optional(),
+  description: z.string().max(500, "Maximum 500 characters.").optional(),
+  documentRequirements: z.string().max(500, "Maximum 500 characters.").optional(),
+  ownerWallet: z.string().max(120, "Maximum 120 characters.").optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -126,7 +127,7 @@ type FormValues = z.infer<typeof formSchema>;
 const formDefaultValues: FormValues = {
   name: "",
   tokenCode: "",
-  status: "Pendente",
+  status: "Pendente", // Default enum value
   location: "",
   valuation: "",
   yieldRate: "",
@@ -138,14 +139,14 @@ const formDefaultValues: FormValues = {
 const RWA_TOKEN_DECIMALS = 6;
 const MAX_METADATA_URI = 200;
 
-const numberFormatter = new Intl.NumberFormat("pt-BR");
+const numberFormatter = new Intl.NumberFormat("en-US");
 
 const parseOptionalNumber = (value?: string | null): number | null => {
   if (!value) {
     return null;
   }
-
-  const sanitized = value.replace(/\./g, "").replace(",", ".").trim();
+  // Use en-US/UK format for parsing (e.g., 1,000.50)
+  const sanitized = value.replace(/,/g, "").trim();
   if (!sanitized) {
     return null;
   }
@@ -154,6 +155,7 @@ const parseOptionalNumber = (value?: string | null): number | null => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+// Status logic relies on Portuguese enum values
 const getStatusIcon = (status: AssetStatus) => {
   switch (status) {
     case "Aprovado":
@@ -184,9 +186,25 @@ const getStatusColor = (status: AssetStatus) => {
   }
 };
 
+// Helper function to translate status for display
+const translateStatus = (status: AssetStatus): string => {
+  switch (status) {
+    case "Pendente":
+      return "Pending";
+    case "Em Análise":
+      return "In Review";
+    case "Aprovado":
+      return "Approved";
+    case "Rejeitado":
+      return "Rejected";
+    default:
+      return status;
+  }
+};
+
 const formatDate = (value: string | null | undefined) => {
   if (!value) {
-    return "Data não informada";
+    return "Date not provided";
   }
 
   const parsed = new Date(value);
@@ -194,15 +212,15 @@ const formatDate = (value: string | null | undefined) => {
     return value;
   }
 
-  return parsed.toLocaleDateString("pt-BR");
+  return parsed.toLocaleDateString("en-US");
 };
 
 const formatPercentage = (value: number | null) => {
   if (value === null || Number.isNaN(value)) {
-    return "Não informado";
+    return "Not provided";
   }
 
-  return `${value.toLocaleString("pt-BR", {
+  return `${value.toLocaleString("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}%`;
@@ -241,8 +259,8 @@ const RWA = () => {
           setProfileId(user.id);
         }
       } catch (error) {
-        console.error("Erro ao carregar perfil do usuário:", error);
-        toast.error("Não foi possível carregar seu perfil.", {
+        console.error("Error loading user profile:", error);
+        toast.error("Could not load your profile.", {
           description: describeError(error),
         });
       }
@@ -258,13 +276,13 @@ const RWA = () => {
   ): Promise<RwaDocument> => {
     const allowedTypes = ["image/jpeg", "image/png", "application/pdf"];
     if (!allowedTypes.includes(file.type)) {
-      throw new Error("Tipo de arquivo inválido. Apenas JPEG, PNG e PDF são permitidos.");
+      throw new Error("Invalid file type. Only JPEG, PNG, and PDF are allowed.");
     }
 
     const maxSizeInMB = 15;
     const maxSizeInBytes = maxSizeInMB * 1024 * 1024;
     if (file.size > maxSizeInBytes) {
-      throw new Error(`Arquivo muito grande. O tamanho máximo permitido é de ${maxSizeInMB}MB.`);
+      throw new Error(`File too large. Maximum allowed size is ${maxSizeInMB}MB.`);
     }
 
     const bucketName = "raw_docs";
@@ -281,13 +299,13 @@ const RWA = () => {
     const { data: urlData } = supabase.storage.from(bucketName).getPublicUrl(filePath);
 
     if (!urlData?.publicUrl) {
-      throw new Error("Não foi possível obter a URL pública do arquivo.");
+      throw new Error("Could not get the file's public URL.");
     }
 
     const newDocument: TablesInsert<"rwa_documents"> = {
       asset_id: asset.id,
       name: file.name,
-      status: "Pendente",
+      status: "Pendente", // Database enum value
       url: urlData.publicUrl,
       profile_id: profileId,
     };
@@ -318,7 +336,7 @@ const RWA = () => {
       setLoadError(null);
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "Erro inesperado ao carregar os ativos.";
+        err instanceof Error ? err.message : "Unexpected error loading assets.";
       setLoadError(message);
     } finally {
       if (isInitial) {
@@ -333,6 +351,7 @@ const RWA = () => {
   }, [loadAssets]);
 
   const counts = useMemo(() => {
+    // Logic depends on Portuguese enum values
     const approved = assets.filter((asset) => asset.status === "Aprovado").length;
     const pending = assets.filter((asset) => asset.status === "Pendente").length;
     const reviewing = assets.filter((asset) => asset.status === "Em Análise").length;
@@ -353,6 +372,7 @@ const RWA = () => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
 
     return assets.filter((asset) => {
+      // Logic depends on Portuguese enum values
       const matchesStatus = statusFilter === "all" ? true : asset.status === statusFilter;
       const matchesSearch =
         normalizedSearch.length === 0 ||
@@ -365,27 +385,27 @@ const RWA = () => {
 
   const summaryCards = [
     {
-      label: "Ativos Totais",
+      label: "Total Assets",
       value: counts.total,
-      description: "Cadastrados na plataforma",
+      description: "Registered on the platform",
       icon: FileText,
     },
     {
-      label: "Em Validação",
+      label: "In Validation",
       value: counts.pending + counts.reviewing,
-      description: "Pendentes e em análise",
+      description: "Pending and in review",
       icon: Clock,
     },
     {
-      label: "Aprovados",
+      label: "Approved",
       value: counts.approved,
-      description: "Prontos para tokenização",
+      description: "Ready for tokenization",
       icon: CheckCircle2,
     },
     {
-      label: "Documentos Enviados",
+      label: "Documents Submitted",
       value: counts.documents,
-      description: "Somatória de uploads",
+      description: "Total uploads",
       icon: Upload,
     },
   ];
@@ -402,7 +422,7 @@ const RWA = () => {
       const payload: CreateRwaAssetInput = {
         name: values.name.trim(),
         token_code: values.tokenCode.trim().toUpperCase(),
-        status: values.status,
+        status: values.status, // Uses Portuguese enum value
         location: values.location?.trim() ? values.location.trim() : null,
         valuation: parseOptionalNumber(values.valuation),
         yield_rate: parseOptionalNumber(values.yieldRate),
@@ -418,7 +438,7 @@ const RWA = () => {
       if (file) {
         try {
           if (!profileId) {
-            throw new Error("ID do perfil do usuário não encontrado. Faça o login novamente.");
+            throw new Error("User profile ID not found. Please log in again.");
           }
           const newDocument = await uploadAndRegisterDocument(createdAsset, file, profileId);
           const assetWithDoc = {
@@ -426,22 +446,22 @@ const RWA = () => {
             documents: [newDocument],
           };
           setAssets((previous) => [assetWithDoc, ...previous]);
-          toast.success("Ativo e documento cadastrados com sucesso!");
+          toast.success("Asset and document registered successfully!");
         } catch (uploadError) {
-          toast.error("Falha ao enviar documento. O ativo não foi salvo.", {
+          toast.error("Failed to upload document. The asset was not saved.", {
             description: describeError(uploadError),
           });
           return false; 
         }
       } else {
         setAssets((previous) => [createdAsset, ...previous]);
-        toast.success("Ativo cadastrado com sucesso!");
+        toast.success("Asset registered successfully!");
       }
       
       return true;
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Erro ao cadastrar o ativo.";
-      toast.error("Não foi possível cadastrar o ativo.", {
+      const message = err instanceof Error ? err.message : "Error registering the asset.";
+      toast.error("Could not register the asset.", {
         description: message,
       });
       return false;
@@ -475,7 +495,8 @@ const RWA = () => {
     setAssetToTokenize(asset);
     setTokenizeSupply(
       asset.valuation !== null && asset.valuation !== undefined
-        ? String(asset.valuation)
+        // Format for display/edit, assumes parseOptionalNumber handles it
+        ? String(asset.valuation) 
         : "",
     );
     setTokenizeMetadataUri("");
@@ -484,27 +505,27 @@ const RWA = () => {
 
   const handleTokenizeAsset = async () => {
     if (!assetToTokenize) {
-      toast.error("Selecione um ativo para tokenizar.");
+      toast.error("Select an asset to tokenize.");
       return;
     }
 
     if (assetToTokenize.owner_wallet) {
-      toast.error("Este ativo já foi tokenizado.");
+      toast.error("This asset has already been tokenized.");
       return;
     }
 
     if (!connected || !publicKey) {
-      toast.error("Conecte sua carteira para tokenizar o ativo.");
+      toast.error("Connect your wallet to tokenize the asset.");
       return;
     }
 
     if (!program) {
-      toast.error("Não foi possível inicializar o programa Anchor. Recarregue a página e tente novamente.");
+      toast.error("Could not initialize Anchor program. Reload the page and try again.");
       return;
     }
 
     if (!profileId) {
-      toast.error("Seu perfil não foi carregado. Faça login novamente.");
+      toast.error("Your profile was not loaded. Please log in again.");
       return;
     }
 
@@ -515,20 +536,20 @@ const RWA = () => {
         RWA_TOKEN_DECIMALS,
       );
     } catch (error) {
-      toast.error("Quantidade inválida.", {
+      toast.error("Invalid quantity.", {
         description: describeError(error),
       });
       return;
     }
 
     if (!Number.isFinite(Number(initialSupplyBase)) || Number(initialSupplyBase) > Number.MAX_SAFE_INTEGER) {
-      toast.error("Quantidade muito alta para registro off-chain.");
+      toast.error("Quantity too high for off-chain registration.");
       return;
     }
 
     const metadataUri = tokenizeMetadataUri.trim();
     if (metadataUri.length > MAX_METADATA_URI) {
-      toast.error(`A metadata URI deve ter no máximo ${MAX_METADATA_URI} caracteres.`);
+      toast.error(`Metadata URI must be ${MAX_METADATA_URI} characters or less.`);
       return;
     }
 
@@ -538,7 +559,7 @@ const RWA = () => {
       valuationMinorUnits = convertCurrencyToMinorUnits(assetToTokenize.valuation);
       yieldBps = toBasisPoints(assetToTokenize.yield_rate);
     } catch (error) {
-      toast.error("Dados financeiros inválidos.", {
+      toast.error("Invalid financial data.", {
         description: describeError(error),
       });
       return;
@@ -596,13 +617,13 @@ const RWA = () => {
     try {
       transactionSignature = await buildMethod().rpc();
     } catch (error) {
-      console.error("Erro ao tokenizar ativo RWA:", error);
+      console.error("Error tokenizing RWA asset:", error);
 
       let description = describeError(error);
       if (error instanceof SendTransactionError) {
         try {
           const logs = await error.getLogs(program.provider.connection);
-          console.error("Logs da transação:", logs);
+          console.error("Transaction logs:", logs);
           const programLog = logs.find((log) => log.startsWith("Program log:"));
           if (programLog) {
             description = `${description}\n${programLog}`;
@@ -614,23 +635,23 @@ const RWA = () => {
               const simulationError = simulation.value.err
                 ? JSON.stringify(simulation.value.err)
                 : null;
-              console.error("Simulação manual - logs:", simulationLogs);
+              console.error("Manual simulation - logs:", simulationLogs);
               if (simulationError) {
-                console.error("Simulação manual - erro:", simulationError);
+                console.error("Manual simulation - error:", simulationError);
                 description = `${description}\nSimulation error: ${simulationError}`;
               } else if (simulationLogs.length) {
                 description = `${description}\nSimulation logs:\n${simulationLogs.join("\n")}`;
               }
             } catch (simulationError) {
-              console.error("Simulação manual falhou:", simulationError);
+              console.error("Manual simulation failed:", simulationError);
             }
           }
         } catch (logError) {
-          console.error("Não foi possível obter os logs da transação:", logError);
+          console.error("Could not get transaction logs:", logError);
         }
       }
 
-      toast.error("Falha ao executar a transação on-chain.", {
+      toast.error("Failed to execute on-chain transaction.", {
         description,
       });
       setIsTokenizing(false);
@@ -640,17 +661,17 @@ const RWA = () => {
     try {
       const quantityNumber = Number(initialSupplyBase);
       if (!Number.isFinite(quantityNumber) || quantityNumber > Number.MAX_SAFE_INTEGER) {
-        throw new Error("Quantidade excede o limite suportado para registro.");
+        throw new Error("Quantity exceeds supported limit for registration.");
       }
 
       const tokenInsert: Database["public"]["Tables"]["tokens"]["Insert"] = {
         profile_id: profileId,
         name: assetToTokenize.name,
         tag: assetToTokenize.token_code,
-        type: "Fungível",
+        type: "Fungível", // Database enum value
         quantity: quantityNumber,
         description: assetToTokenize.description ?? "",
-        status: "Ativo",
+        status: "Ativo", // Database enum value
         transaction_hash: transactionSignature,
       };
 
@@ -666,7 +687,7 @@ const RWA = () => {
         .eq("id", assetToTokenize.id);
 
       if (updateError) {
-        console.warn("Não foi possível atualizar o proprietário do ativo no Supabase:", updateError);
+        console.warn("Could not update asset owner in Supabase:", updateError);
       }
 
       setAssets((previous) =>
@@ -684,12 +705,12 @@ const RWA = () => {
         });
       }
 
-      toast.success("Ativo tokenizado com sucesso!", {
+      toast.success("Asset tokenized successfully!", {
         description: `Explorer: ${EXPLORER_BASE_URL}/tx/${transactionSignature}?cluster=devnet`,
       });
     } catch (error) {
-      console.error("Erro ao registrar tokenização no Supabase:", error);
-      toast.warning("Token criado on-chain, mas não foi registrado no Supabase.", {
+      console.error("Error registering tokenization in Supabase:", error);
+      toast.warning("Token created on-chain, but not registered in Supabase.", {
         description: describeError(error),
       });
     } finally {
@@ -712,8 +733,8 @@ const RWA = () => {
       const newDocument = await uploadAndRegisterDocument(asset, file, profileId);
       return newDocument;
     } catch (error) {
-      console.error("Erro no upload do documento:", error);
-      toast.error("Falha ao enviar o documento.", {
+      console.error("Error uploading document:", error);
+      toast.error("Failed to upload document.", {
         description: describeError(error),
       });
       throw error; 
@@ -729,9 +750,9 @@ const RWA = () => {
           {assetToTokenize && (
             <>
               <DialogHeader>
-                <DialogTitle>Tokenizar ativo</DialogTitle>
+                <DialogTitle>Tokenize Asset</DialogTitle>
                 <DialogDescription>
-                  Emita o token on-chain para <strong>{assetToTokenize.name}</strong>.
+                  Mint the on-chain token for <strong>{assetToTokenize.name}</strong>.
                 </DialogDescription>
               </DialogHeader>
 
@@ -741,15 +762,15 @@ const RWA = () => {
                     <div className="flex items-center gap-2">
                       <Wallet className="h-4 w-4" />
                       <span>
-                        Carteira emissora:{" "}
-                        {publicKey ? publicKey.toBase58() : "Conecte sua carteira"}
+                        Minter wallet:{" "}
+                        {publicKey ? publicKey.toBase58() : "Connect your wallet"}
                       </span>
                     </div>
                     {assetToTokenize.valuation !== null && (
                       <div className="flex items-center gap-2">
                         <Coins className="h-4 w-4" />
                         <span>
-                          Valuation estimado: R${" "}
+                          Estimated valuation: ${" "}
                           {numberFormatter.format(assetToTokenize.valuation)}
                         </span>
                       </div>
@@ -758,21 +779,21 @@ const RWA = () => {
                       <div className="flex items-center gap-2">
                         <BadgePercent className="h-4 w-4" />
                         <span>
-                          Yield esperado: {assetToTokenize.yield_rate.toFixed(2)}% a.a.
+                          Expected yield: {assetToTokenize.yield_rate.toFixed(2)}% p.a.
                         </span>
                       </div>
                     )}
                     {assetToTokenize.owner_wallet && (
                       <div className="flex items-center gap-2 text-secondary">
                         <CheckCircle2 className="h-4 w-4" />
-                        <span>Já tokenizado por {assetToTokenize.owner_wallet}</span>
+                        <span>Already tokenized by {assetToTokenize.owner_wallet}</span>
                       </div>
                     )}
                   </div>
                 </Card>
 
                 <div className="space-y-2">
-                  <Label>Quantidade inicial (unidades mínimas)</Label>
+                  <Label>Initial quantity (minor units)</Label>
                   <Input
                     value={tokenizeSupply}
                     onChange={(event) => setTokenizeSupply(event.target.value)}
@@ -782,12 +803,12 @@ const RWA = () => {
                     inputMode="decimal"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Os tokens RWA usam {RWA_TOKEN_DECIMALS} casas decimais. Informe a quantidade em unidades mínimas.
+                    RWA tokens use {RWA_TOKEN_DECIMALS} decimals. Enter the quantity in minor units.
                   </p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Metadata URI (opcional)</Label>
+                  <Label>Metadata URI (optional)</Label>
                   <Input
                     value={tokenizeMetadataUri}
                     onChange={(event) => setTokenizeMetadataUri(event.target.value)}
@@ -797,7 +818,7 @@ const RWA = () => {
                     maxLength={MAX_METADATA_URI}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Máximo de {MAX_METADATA_URI} caracteres. Utilize uma URL IPFS/Arweave com os metadados do ativo.
+                    Maximum {MAX_METADATA_URI} characters. Use an IPFS/Arweave URL with the asset metadata.
                   </p>
                 </div>
               </div>
@@ -808,7 +829,7 @@ const RWA = () => {
                   onClick={() => handleTokenizeDialogChange(false)}
                   disabled={isTokenizing}
                 >
-                  Cancelar
+                  Cancel
                 </Button>
                 <Button
                   variant="hero"
@@ -820,7 +841,7 @@ const RWA = () => {
                     Boolean(assetToTokenize.owner_wallet)
                   }
                 >
-                  {isTokenizing ? "Tokenizando..." : "Confirmar tokenização"}
+                  {isTokenizing ? "Tokenizing..." : "Confirm Tokenization"}
                 </Button>
               </DialogFooter>
             </>
@@ -848,15 +869,15 @@ const RWA = () => {
       <div className="space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h2 className="text-3xl font-bold">RWA - Ativos Reais</h2>
+            <h2 className="text-3xl font-bold">RWA - Real-World Assets</h2>
             <p className="text-muted-foreground">
-              Cadastre, monitore e valide ativos do mundo real em um só lugar.
+              Register, monitor, and validate real-world assets in one place.
             </p>
           </div>
 
           <Button variant="hero" onClick={() => setIsCreateOpen(true)}>
             <Upload className="mr-2 h-4 w-4" />
-            Adicionar Ativo
+            Add Asset
           </Button>
         </div>
 
@@ -885,7 +906,7 @@ const RWA = () => {
         {!connected && (
           <Card className="p-4 border-dashed border-primary/40 bg-card/40">
             <p className="text-sm text-muted-foreground">
-              Conecte sua carteira Solana para emitir tokens RWA diretamente no blockchain.
+              Connect your Solana wallet to mint RWA tokens directly on the blockchain.
             </p>
           </Card>
         )}
@@ -911,7 +932,7 @@ const RWA = () => {
             <div className="relative w-full md:w-72">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Buscar por nome ou código"
+                placeholder="Search by name or code"
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
                 className="pl-10 bg-background/60"
@@ -928,12 +949,12 @@ const RWA = () => {
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
                 <h3 className="text-lg font-semibold text-destructive">
-                  Não foi possível carregar os ativos
+                  Could not load assets
                 </h3>
                 <p className="text-sm text-destructive/80">{loadError}</p>
               </div>
               <Button variant="outline" onClick={() => loadAssets()} disabled={isRefreshing}>
-                Tentar novamente
+                Try again
               </Button>
             </div>
           </Card>
@@ -954,10 +975,10 @@ const RWA = () => {
         ) : filteredAssets.length === 0 ? (
           <Card className="p-10 text-center bg-card/40 border-border/60">
             <div className="max-w-lg mx-auto space-y-3">
-              <h3 className="text-xl font-semibold">Nenhum ativo encontrado</h3>
+              <h3 className="text-xl font-semibold">No assets found</h3>
               <p className="text-sm text-muted-foreground">
-                Ajuste os filtros ou cadastre um novo ativo real para começar a acompanhar sua
-                jornada de tokenização.
+                Adjust the filters or register a new real-world asset to start tracking its
+                tokenization journey.
               </p>
             </div>
           </Card>
@@ -984,11 +1005,11 @@ const RWA = () => {
                         <FileText className="h-4 w-4" />
                         <span>
                           {asset.documents.length}{" "}
-                          {asset.documents.length === 1 ? "documento" : "documentos"}
+                          {asset.documents.length === 1 ? "document" : "documents"}
                         </span>
                       </div>
                       <span className="hidden sm:inline">•</span>
-                      <span>Cadastrado em {formatDate(asset.created_at)}</span>
+                      <span>Registered on {formatDate(asset.created_at)}</span>
                       {asset.location && (
                         <>
                           <span className="hidden sm:inline">•</span>
@@ -1002,7 +1023,7 @@ const RWA = () => {
                     <div className="flex items-center gap-2">
                       {getStatusIcon(asset.status)}
                       <span className={cn("font-medium", getStatusColor(asset.status))}>
-                        {asset.status}
+                        {translateStatus(asset.status)}
                       </span>
                     </div>
                     {asset.status === "Aprovado" && !asset.owner_wallet && (
@@ -1012,11 +1033,11 @@ const RWA = () => {
                         onClick={() => handleOpenTokenize(asset)}
                         disabled={!connected || !program || isTokenizing}
                       >
-                        Tokenizar
+                        Tokenize
                       </Button>
                     )}
                     <Button variant="outline" size="sm" onClick={() => setSelectedAsset(asset)}>
-                      Ver detalhes
+                      View details
                     </Button>
                   </div>
                 </div>
@@ -1024,14 +1045,14 @@ const RWA = () => {
                 {asset.owner_wallet && (
                   <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
                     <Wallet className="h-4 w-4" />
-                    <span>Tokenizado para {asset.owner_wallet}</span>
+                    <span>Tokenized to {asset.owner_wallet}</span>
                   </div>
                 )}
 
                 {asset.status === "Rejeitado" && asset.rejection_reason && (
                   <div className="mt-4 p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
                     <p className="text-sm text-destructive">
-                      <strong>Motivo:</strong> {asset.rejection_reason}
+                      <strong>Reason:</strong> {asset.rejection_reason}
                     </p>
                   </div>
                 )}
@@ -1043,18 +1064,18 @@ const RWA = () => {
         <Card className="p-8 bg-gradient-secondary text-secondary-foreground border-0">
           <div className="flex flex-col items-center gap-6 md:flex-row">
             <div className="flex-1">
-              <h3 className="text-2xl font-bold mb-2">Como funciona a validação?</h3>
+              <h3 className="text-2xl font-bold mb-2">How does validation work?</h3>
               <p className="opacity-90 mb-4">
-                Nossa equipe analisa cada documento enviado para garantir a autenticidade e
-                conformidade do ativo real.
+                Our team analyzes each submitted document to ensure the authenticity and
+                compliance of the real asset.
               </p>
               <ul className="space-y-2 text-sm opacity-90">
-                <li>✓ Análise de documentação em até 48h</li>
-                <li>✓ Verificação de autenticidade</li>
-                <li>✓ Conformidade legal e regulatória</li>
+                <li>✓ Document analysis within 48h</li>
+                <li>✓ Authenticity verification</li>
+                <li>✓ Legal and regulatory compliance</li>
               </ul>
             </div>
-            <Button variant="gold">Saiba Mais</Button>
+            <Button variant="gold">Learn More</Button>
           </div>
         </Card>
       </div>

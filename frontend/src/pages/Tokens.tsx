@@ -39,7 +39,7 @@ const Tokens = () => {
   const { publicKey, connected } = useWallet();
   const program = useHackaProgram();
 
-  // Buscar o perfil do usuário e seus tokens
+  // Fetch user profile and their tokens
   useEffect(() => {
     const fetchData = async () => {
       setIsLoadingTokens(true);
@@ -47,7 +47,7 @@ const Tokens = () => {
         const { data: { user } } = await supabase.auth.getUser();
 
         if (!user) {
-          throw new Error("Usuário não autenticado. Por favor, faça o login novamente.");
+          throw new Error("User not authenticated. Please log in again.");
         }
         
         const currentProfileId = user.id;
@@ -65,8 +65,8 @@ const Tokens = () => {
 
         setExistingTokens(tokensData || []);
       } catch (error) {
-        console.error("Erro ao buscar dados:", error);
-        toast.error("Erro ao carregar seus tokens.", { description: describeError(error) });
+        console.error("Error fetching data:", error);
+        toast.error("Error loading your tokens.", { description: describeError(error) });
       } finally {
         setIsLoadingTokens(false);
       }
@@ -79,19 +79,19 @@ const Tokens = () => {
   const handleCreateToken = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!profileId) {
-      toast.error("Perfil de usuário não encontrado. Não é possível criar o token.");
+      toast.error("User profile not found. Cannot create token.");
       return;
     }
     if (!tokenType) {
-      toast.error("Por favor, selecione um tipo de token.");
+      toast.error("Please select a token type.");
       return;
     }
     if (!connected || !publicKey) {
-      toast.error("Conecte sua carteira para emitir tokens on-chain.");
+      toast.error("Connect your wallet to mint tokens on-chain.");
       return;
     }
     if (!program) {
-      toast.error("Não foi possível inicializar o programa Anchor. Recarregue a página e tente novamente.");
+      toast.error("Could not initialize Anchor program. Reload the page and try again.");
       return;
     }
 
@@ -105,13 +105,13 @@ const Tokens = () => {
     const quantityRaw = (formData.get("token-quantity") as string)?.trim();
 
     if (!name || !symbol) {
-      toast.error("Informe nome e tag do token.");
+      toast.error("Please provide token name and tag.");
       setIsCreating(false);
       return;
     }
 
     if (!quantityRaw) {
-      toast.error("Informe a quantidade inicial de tokens.");
+      toast.error("Please provide the initial token quantity.");
       setIsCreating(false);
       return;
     }
@@ -120,32 +120,32 @@ const Tokens = () => {
     try {
       quantityBigInt = BigInt(quantityRaw);
     } catch (error) {
-      toast.error("Quantidade inválida. Informe um número inteiro.");
+      toast.error("Invalid quantity. Please enter an integer.");
       setIsCreating(false);
       return;
     }
 
     if (quantityBigInt <= 0n) {
-      toast.error("A quantidade inicial deve ser maior que zero.");
+      toast.error("The initial quantity must be greater than zero.");
       setIsCreating(false);
       return;
     }
 
     if (tokenType === "Não-fungível" && quantityBigInt !== 1n) {
-      toast.error("Tokens não-fungíveis devem ter quantidade igual a 1.");
+      toast.error("Non-fungible tokens must have a quantity of 1.");
       setIsCreating(false);
       return;
     }
 
     if (metadataUri.length > 200) {
-      toast.error("A URI de metadata deve ter no máximo 200 caracteres.");
+      toast.error("Metadata URI must be 200 characters or less.");
       setIsCreating(false);
       return;
     }
 
     const maxSafeSupply = BigInt(Number.MAX_SAFE_INTEGER);
     if (quantityBigInt > maxSafeSupply) {
-      toast.error("Quantidade muito alta. Utilize um valor até 9.007.199.254.740.991.");
+      toast.error("Quantity too high. Use a value up to 9,007,199,254,740,991.");
       setIsCreating(false);
       return;
     }
@@ -190,8 +190,8 @@ const Tokens = () => {
         .signers([mintKeypair])
         .rpc();
     } catch (error) {
-      console.error("Erro ao executar transação on-chain:", error);
-      toast.error("Falha ao executar a transação on-chain.", {
+      console.error("Error executing on-chain transaction:", error);
+      toast.error("Failed to execute on-chain transaction.", {
         description: describeError(error),
       });
       setIsCreating(false);
@@ -203,10 +203,10 @@ const Tokens = () => {
         profile_id: profileId,
         name,
         tag: symbol,
-        type: tokenType,
+        type: tokenType, // Keeping Portuguese type for Supabase enum matching
         quantity: Number(quantityBigInt),
         description,
-        status: "Ativo",
+        status: "Ativo", // Keeping Portuguese status for Supabase enum matching
         transaction_hash: transactionSignature,
       };
 
@@ -218,16 +218,16 @@ const Tokens = () => {
 
       if (error) throw error;
 
-      toast.success("Token emitido com sucesso!", {
+      toast.success("Token minted successfully!", {
         description: `Explorer: ${EXPLORER_BASE_URL}/tx/${transactionSignature}?cluster=devnet`,
       });
       setExistingTokens((prev) => [data, ...prev]);
       e.currentTarget.reset();
       setTokenType("");
     } catch (error) {
-      console.error("Erro ao salvar token no Supabase:", error);
-      toast.warning("Token criado on-chain, mas não foi salvo no Supabase.", {
-        description: `${describeError(error)}. Guarde a transação: ${transactionSignature}`,
+      console.error("Error saving token to Supabase:", error);
+      toast.warning("Token created on-chain, but failed to save to Supabase.", {
+        description: `${describeError(error)}. Save the transaction: ${transactionSignature}`,
       });
     } finally {
       setIsCreating(false);
@@ -240,24 +240,24 @@ const Tokens = () => {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-3xl font-bold mb-2">Tokens</h2>
-            <p className="text-muted-foreground">Crie e gerencie seus tokens</p>
+            <p className="text-muted-foreground">Create and manage your tokens</p>
           </div>
           
           <Dialog>
             <DialogTrigger asChild>
               <Button variant="hero" disabled={!profileId || !connected || !program}>
                 <Plus className="mr-2" />
-                Emitir Token
+                Mint Token
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl bg-card border-border">
               <DialogHeader>
-                <DialogTitle className="text-2xl">Emitir Novo Token</DialogTitle>
+                <DialogTitle className="text-2xl">Mint New Token</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleCreateToken} className="space-y-4 mt-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="token-name">Nome do Token</Label>
+                    <Label htmlFor="token-name">Token Name</Label>
                     <Input 
                       id="token-name"
                       name="token-name"
@@ -280,19 +280,19 @@ const Tokens = () => {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="token-type">Tipo</Label>
+                    <Label htmlFor="token-type">Type</Label>
                     <Select required onValueChange={(value) => setTokenType(value as NewToken['type'])} value={tokenType}>
                       <SelectTrigger className="bg-background/50">
-                        <SelectValue placeholder="Selecione o tipo" />
+                        <SelectValue placeholder="Select the type" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Fungível">Fungível</SelectItem>
-                        <SelectItem value="Não-fungível">Não-fungível</SelectItem>
+                        <SelectItem value="Fungível">Fungible</SelectItem>
+                        <SelectItem value="Não-fungível">Non-fungible</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="token-quantity">Quantidade</Label>
+                    <Label htmlFor="token-quantity">Quantity</Label>
                     <Input 
                       id="token-quantity"
                       name="token-quantity"
@@ -305,11 +305,11 @@ const Tokens = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="token-description">Descrição</Label>
+                  <Label htmlFor="token-description">Description</Label>
                   <Textarea 
                     id="token-description"
                     name="token-description"
-                    placeholder="Descreva o propósito e características do token"
+                    placeholder="Describe the token's purpose and characteristics"
                     className="bg-background/50 min-h-24"
                   />
                 </div>
@@ -325,7 +325,7 @@ const Tokens = () => {
                     maxLength={200}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Opcional. Informe a URL do metadata (Arweave/IPFS). Máx. 200 caracteres.
+                    Optional. Provide the metadata URL (Arweave/IPFS). Max. 200 characters.
                   </p>
                 </div>
 
@@ -335,7 +335,7 @@ const Tokens = () => {
                   variant="hero"
                   disabled={isCreating || !profileId || !connected || !program}
                 >
-                  {isCreating ? "Emitindo no blockchain..." : "Emitir Token"}
+                  {isCreating ? "Minting on blockchain..." : "Mint Token"}
                 </Button>
               </form>
             </DialogContent>
@@ -345,32 +345,32 @@ const Tokens = () => {
         {!connected && (
           <Card className="p-4 border-dashed border-primary/40 bg-card/40">
             <p className="text-muted-foreground text-sm">
-              Conecte uma carteira Solana suportada para emitir tokens no blockchain.
+              Connect a supported Solana wallet to mint tokens on the blockchain.
             </p>
           </Card>
         )}
 
         <Card className="p-6 bg-card/50 backdrop-blur-sm border-border">
-          <h3 className="text-xl font-semibold mb-4">Tokens Criados</h3>
+          <h3 className="text-xl font-semibold mb-4">Created Tokens</h3>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border">
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Nome</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Name</th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Tag</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Tipo</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Quantidade</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Type</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Quantity</th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Data</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Transação</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Ações</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Date</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Transaction</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {isLoadingTokens ? (
-                    <tr><td colSpan={8} className="text-center py-8">Carregando tokens...</td></tr>
+                    <tr><td colSpan={8} className="text-center py-8">Loading tokens...</td></tr>
                 ) : existingTokens.length === 0 ? (
-                    <tr><td colSpan={8} className="text-center py-8 text-muted-foreground">Nenhum token encontrado.</td></tr>
+                    <tr><td colSpan={8} className="text-center py-8 text-muted-foreground">No tokens found.</td></tr>
                 ) : (
                     existingTokens.map((token) => (
                     <tr key={token.id} className="border-b border-border last:border-0 hover:bg-muted/50 transition-colors">
@@ -378,19 +378,19 @@ const Tokens = () => {
                         <td className="py-4 px-4">
                         <code className="bg-muted px-2 py-1 rounded text-sm">{token.tag}</code>
                         </td>
-                        <td className="py-4 px-4">{token.type}</td>
+                        <td className="py-4 px-4">{token.type === 'Fungível' ? 'Fungible' : 'Non-fungible'}</td>
                         <td className="py-4 px-4">{token.quantity.toLocaleString()}</td>
                         <td className="py-4 px-4">
                         <div className="flex items-center gap-2">
                             {token.status === "Ativo" ? (
                             <>
                                 <CheckCircle2 className="w-4 h-4 text-secondary" />
-                                <span className="text-secondary">{token.status}</span>
+                                <span className="text-secondary">Active</span>
                             </>
                             ) : token.status === 'Pendente' ? (
                             <>
                                 <Clock className="w-4 h-4 text-gold" />
-                                <span className="text-gold">{token.status}</span>
+                                <span className="text-gold">Pending</span>
                             </>
                             ) : (
                             <>
@@ -423,7 +423,7 @@ const Tokens = () => {
                                 </a>
                               </Button>
                             )}
-                            <Button variant="ghost" size="sm">Ver detalhes</Button>
+                            <Button variant="ghost" size="sm">View details</Button>
                           </div>
                         </td>
                     </tr>
