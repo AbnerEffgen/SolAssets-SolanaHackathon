@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   Coins,
+  LayoutDashboard,
   Home,
   FileText,
   Vote,
@@ -19,14 +20,17 @@ import { Sidebar, SidebarBody, SidebarLink } from "@/components/ui/sidebar";
 
 interface DashboardLayoutProps {
   children: ReactNode;
+  noPadding?: boolean;
+  background?: ReactNode;
 }
 
-const DashboardLayout = ({ children }: DashboardLayoutProps) => {
+const DashboardLayout = ({ children, noPadding = false, background }: DashboardLayoutProps) => {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const mainMenuItems = [
-    { icon: Home, label: "Dashboard", path: "/dashboard" },
+    { icon: Home, label: "Home", path: "/home" },
+    { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
     { icon: Coins, label: "Tokens", path: "/dashboard/tokens" },
     { icon: FileText, label: "RWA", path: "/dashboard/rwa" },
     { icon: Vote, label: "Governance", path: "/dashboard/governance" },
@@ -38,7 +42,6 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     { icon: Settings, label: "Settings", path: "/dashboard/settings" },
   ];
 
-  // Função para mapear itens para o formato de link
   const createLinks = (items: typeof mainMenuItems) => items.map((item) => ({
     label: item.label,
     href: item.path,
@@ -49,8 +52,14 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const bottomLinks = createLinks(bottomMenuItems);
 
   return (
-    <div className="h-screen w-full flex flex-col bg-background">
-      <header className="shrink-0 z-50 backdrop-blur-md bg-black border-b border-border">
+    <div className="h-screen w-full flex flex-col relative">
+      {background ? (
+        <div className="absolute inset-0 -z-10">{background}</div>
+      ) : (
+        <div className="absolute inset-0 -z-10 bg-background"></div>
+      )}
+
+      <header className="shrink-0 z-50 backdrop-blur-sm bg-background/50 border-b border-border">
         <div className="flex items-center justify-between px-4 h-14">
           <div className="flex items-center gap-4">
             <Button
@@ -71,7 +80,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         </div>
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden bg-transparent">
         <Sidebar open={sidebarOpen} setOpen={setSidebarOpen}>
           <SidebarBody
             className="py-6 border-r border-border"
@@ -115,7 +124,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           </SidebarBody>
         </Sidebar>
 
-        <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
+        <main className={cn("flex-1 overflow-y-auto", !noPadding && "p-6 lg:p-8")}>
           {children}
         </main>
       </div>

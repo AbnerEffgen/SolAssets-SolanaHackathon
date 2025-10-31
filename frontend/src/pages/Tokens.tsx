@@ -49,7 +49,7 @@ const Tokens = () => {
         if (!user) {
           throw new Error("User not authenticated. Please log in again.");
         }
-        
+
         const currentProfileId = user.id;
         setProfileId(currentProfileId);
 
@@ -242,7 +242,7 @@ const Tokens = () => {
             <h2 className="text-3xl font-bold mb-2">Tokens</h2>
             <p className="text-muted-foreground">Create and manage your tokens</p>
           </div>
-          
+
           <Dialog>
             <DialogTrigger asChild>
               <Button variant="hero" disabled={!profileId || !connected || !program}>
@@ -258,7 +258,7 @@ const Tokens = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="token-name">Token Name</Label>
-                    <Input 
+                    <Input
                       id="token-name"
                       name="token-name"
                       placeholder="Ex: Agro Token"
@@ -268,7 +268,7 @@ const Tokens = () => {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="token-tag">Tag</Label>
-                    <Input 
+                    <Input
                       id="token-tag"
                       name="token-tag"
                       placeholder="Ex: AGR-001"
@@ -293,10 +293,10 @@ const Tokens = () => {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="token-quantity">Quantity</Label>
-                    <Input 
+                    <Input
                       id="token-quantity"
                       name="token-quantity"
-                      type="number" 
+                      type="number"
                       placeholder="1000000"
                       className="bg-background/50"
                       required
@@ -306,7 +306,7 @@ const Tokens = () => {
 
                 <div className="space-y-2">
                   <Label htmlFor="token-description">Description</Label>
-                  <Textarea 
+                  <Textarea
                     id="token-description"
                     name="token-description"
                     placeholder="Describe the token's purpose and characteristics"
@@ -329,9 +329,9 @@ const Tokens = () => {
                   </p>
                 </div>
 
-                <Button 
-                  type="submit" 
-                  className="w-full" 
+                <Button
+                  type="submit"
+                  className="w-full"
                   variant="hero"
                   disabled={isCreating || !profileId || !connected || !program}
                 >
@@ -368,66 +368,65 @@ const Tokens = () => {
               </thead>
               <tbody>
                 {isLoadingTokens ? (
-                    <tr><td colSpan={8} className="text-center py-8">Loading tokens...</td></tr>
+                  <tr><td colSpan={8} className="text-center py-8">Loading tokens...</td></tr>
                 ) : existingTokens.length === 0 ? (
-                    <tr><td colSpan={8} className="text-center py-8 text-muted-foreground">No tokens found.</td></tr>
+                  <tr><td colSpan={8} className="text-center py-8 text-muted-foreground">No tokens found.</td></tr>
                 ) : (
-                    existingTokens.map((token) => (
+                  existingTokens.map((token) => (
                     <tr key={token.id} className="border-b border-border last:border-0 hover:bg-muted/50 transition-colors">
-                        <td className="py-4 px-4 font-medium">{token.name}</td>
-                        <td className="py-4 px-4">
+                      <td className="py-4 px-4 font-medium">{token.name}</td>
+                      <td className="py-4 px-4">
                         <code className="bg-muted px-2 py-1 rounded text-sm">{token.tag}</code>
-                        </td>
-                        <td className="py-4 px-4">{token.type === 'Fungível' ? 'Fungible' : 'Non-fungible'}</td>
-                        <td className="py-4 px-4">{token.quantity.toLocaleString()}</td>
-                        <td className="py-4 px-4">
+                      </td>
+                      <td className="py-4 px-4">{token.type === 'Fungível' ? 'Fungible' : 'Non-fungible'}</td>
+                      <td className="py-4 px-4">{token.quantity.toLocaleString()}</td>
+                      <td className="py-4 px-4">
                         <div className="flex items-center gap-2">
-                            {token.status === "Ativo" ? (
+                          {token.status === "Ativo" ? (
                             <>
-                                <CheckCircle2 className="w-4 h-4 text-secondary" />
-                                <span className="text-secondary">Active</span>
+                              <CheckCircle2 className="w-4 h-4 text-secondary" />
+                              <span className="text-secondary">Active</span>
                             </>
-                            ) : token.status === 'Pendente' ? (
+                          ) : token.status === 'Pendente' ? (
                             <>
-                                <Clock className="w-4 h-4 text-gold" />
-                                <span className="text-gold">Pending</span>
+                              <Clock className="w-4 h-4 text-gold" />
+                              <span className="text-gold">Pending</span>
                             </>
-                            ) : (
-                            <>
-                                <AlertCircle className="w-4 h-4 text-destructive" />
-                                <span className="text-destructive">{token.status}</span>
-                            </>
-                            )}
-                        </div>
-                        </td>
-                        <td className="py-4 px-4 text-sm text-muted-foreground">{new Date(token.created_at).toLocaleDateString()}</td>
-                        <td className="py-4 px-4 text-sm">
-                          {token.transaction_hash ? (
-                            <code className="bg-muted px-2 py-1 rounded">
-                              {token.transaction_hash.slice(0, 8)}&hellip;
-                            </code>
                           ) : (
-                            <span className="text-muted-foreground">—</span>
+                            <>
+                              <AlertCircle className="w-4 h-4 text-destructive" />
+                              <span className="text-destructive">{token.status}</span>
+                            </>
                           )}
-                        </td>
-                        <td className="py-4 px-4">
-                          <div className="flex items-center gap-2">
-                            {token.transaction_hash && (
-                              <Button variant="outline" size="sm" asChild>
-                                <a
-                                  href={`${EXPLORER_BASE_URL}/tx/${token.transaction_hash}?cluster=devnet`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  Explorer
-                                </a>
-                              </Button>
-                            )}
-                            <Button variant="ghost" size="sm">View details</Button>
-                          </div>
-                        </td>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4 text-sm text-muted-foreground">{new Date(token.created_at).toLocaleDateString()}</td>
+                      <td className="py-4 px-4 text-sm">
+                        {token.transaction_hash ? (
+                          <code className="bg-muted px-2 py-1 rounded">
+                            {token.transaction_hash.slice(0, 8)}&hellip;
+                          </code>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-2">
+                          {token.transaction_hash && (
+                            <Button variant="outline" size="sm" asChild>
+                              <a
+                                href={`${EXPLORER_BASE_URL}/tx/${token.transaction_hash}?cluster=devnet`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                View details
+                              </a>
+                            </Button>
+                          )}
+                        </div>
+                      </td>
                     </tr>
-                    ))
+                  ))
                 )}
               </tbody>
             </table>

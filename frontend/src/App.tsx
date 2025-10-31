@@ -3,10 +3,11 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom"; 
+import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
+import Home from "./pages/Home";
 import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
-import CreateProfile from "./pages/CreateProfile"; 
+import CreateProfile from "./pages/CreateProfile";
 import Dashboard from "./pages/Dashboard";
 import Tokens from "./pages/Tokens";
 import RWA from "./pages/RWA";
@@ -16,7 +17,7 @@ import Market from "./pages/Market";
 import Notifications from "./pages/Notifications";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
-import { ConnectionProvider, WalletProvider, useWallet } from '@solana/wallet-adapter-react'; 
+import { ConnectionProvider, WalletProvider, useWallet } from '@solana/wallet-adapter-react';
 import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
 import { PhantomWalletAdapter } from '@solana/wallet-adapter-phantom';
 import { SolflareWalletAdapter } from '@solana/wallet-adapter-solflare';
@@ -28,21 +29,21 @@ import { toast } from 'sonner';
 const queryClient = new QueryClient();
 
 const WalletWatcher = () => {
-  const { connected, disconnecting } = useWallet();
-  const navigate = useNavigate();
-  
-  const wasConnected = useRef(connected);
+    const { connected, disconnecting } = useWallet();
+    const navigate = useNavigate();
 
-  useEffect(() => {
-    if (wasConnected.current && !connected && !disconnecting) {
-      toast.info("Carteira desconectada. Redirecionando para a página inicial.");
-      navigate('/');
-    }
-    
-    wasConnected.current = connected;
-  }, [connected, disconnecting, navigate]);
+    const wasConnected = useRef(connected);
 
-  return null; 
+    useEffect(() => {
+        if (wasConnected.current && !connected && !disconnecting) {
+            toast.info("Carteira desconectada. Redirecionando para a página inicial.");
+            navigate('/');
+        }
+
+        wasConnected.current = connected;
+    }, [connected, disconnecting, navigate]);
+
+    return null;
 };
 
 const App = () => {
@@ -53,23 +54,24 @@ const App = () => {
             new PhantomWalletAdapter(),
             new SolflareWalletAdapter({ network }),
         ],
-        [network] 
+        [network]
     );
 
     return (
         <ConnectionProvider endpoint={endpoint}>
-            <WalletProvider wallets={wallets} autoConnect> 
+            <WalletProvider wallets={wallets} autoConnect>
                 <WalletModalProvider>
                     <QueryClientProvider client={queryClient}>
                         <TooltipProvider>
-                            <Toaster /> 
-                            <Sonner /> 
+                            <Toaster />
+                            <Sonner />
                             <BrowserRouter>
-                                <WalletWatcher /> 
+                                <WalletWatcher />
                                 <Routes>
                                     <Route path="/" element={<Landing />} />
+                                    <Route path="/home" element={<Home />} />
                                     <Route path="/auth" element={<Auth />} />
-                                    <Route path="/create-profile" element={<CreateProfile />} /> 
+                                    <Route path="/create-profile" element={<CreateProfile />} />
                                     <Route path="/dashboard" element={<Dashboard />} />
                                     <Route path="/my-dashboard" element={<MyDashboard />} />
                                     <Route path="/dashboard/tokens" element={<Tokens />} />

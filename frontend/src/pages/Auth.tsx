@@ -1,18 +1,33 @@
 import React, { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Link, useNavigate } from "react-router-dom";
-import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { SolanaWallet } from '@supabase/auth-js/dist/module/lib/types';
 import { WavyBackground } from "@/components/ui/background";
+import { Button } from "@/components/ui/button";
 import logo from "@/assets/logo.svg";
 
 const Auth = () => {
   const navigate = useNavigate();
-  const { connected, publicKey, connecting, wallet } = useWallet();
+  const { connected, publicKey, connecting, wallet, disconnect } = useWallet();
+  const { setVisible } = useWalletModal();
   const [isAuthenticating, setIsAuthenticating] = useState(false);
+
+  const handleResetConnection = async () => {
+    try {
+      if (connected) {
+        await disconnect();
+      }
+    } catch (e) {
+      console.error("Failed to disconnect wallet:", e);
+    } finally {
+      localStorage.removeItem('wallet-adapter-name');
+      window.location.reload();
+    }
+  };
 
   useEffect(() => {
     const handleAuth = async () => {
@@ -87,10 +102,21 @@ const Auth = () => {
             Use your Solana wallet to access the SolAssets platform.
           </p>
 
-          <WalletMultiButton
-            className="btn-hero w-full"
-            style={{ height: '48px', fontSize: '16px', borderRadius: 'var(--radius)' }}
-          />
+          {!connected ? (
+            <Button
+              variant="hero"
+              className="w-full h-12 text-base"
+              onClick={() => setVisible(true)}
+              disabled={connecting}
+            >
+              Connect Wallet
+            </Button>
+          ) : (
+            <div className="w-full p-3 rounded-md border border-border bg-background/60 text-center space-y-1">
+              <p className="text-xs text-muted-foreground">Connected Wallet</p>
+              <p className="font-mono text-sm truncate">{publicKey?.toBase58()}</p>
+            </div>
+          )}
 
           {(connecting || isAuthenticating) &&
             <p className="text-sm text-muted-foreground mt-4 animate-pulse">
@@ -99,9 +125,19 @@ const Auth = () => {
           }
           {!connecting && !isAuthenticating &&
             <p className="text-center text-sm text-muted-foreground mt-4">
-              We support Phantom, Solflare, Backpack, and more.
+              We support Brave, Phantom and Solflare.
             </p>
           }
+
+          <div className="text-center mt-6">
+            <Button
+              variant="link"
+              className="text-primary h-auto p-0 text-xs"
+              onClick={handleResetConnection}
+            >
+              RELOAD
+            </Button>
+          </div>
         </Card>
       </div>
     </div>
