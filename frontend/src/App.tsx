@@ -10,6 +10,7 @@ import CreateProfile from "./pages/CreateProfile";
 import Dashboard from "./pages/Dashboard";
 import Tokens from "./pages/Tokens";
 import RWA from "./pages/RWA";
+import MyDashboard from "./pages/MyDashboard";
 import Governance from "./pages/Governance";
 import Market from "./pages/Market";
 import Notifications from "./pages/Notifications";
@@ -70,6 +71,7 @@ const App = () => {
                                     <Route path="/auth" element={<Auth />} />
                                     <Route path="/create-profile" element={<CreateProfile />} /> 
                                     <Route path="/dashboard" element={<Dashboard />} />
+                                    <Route path="/my-dashboard" element={<MyDashboard />} />
                                     <Route path="/dashboard/tokens" element={<Tokens />} />
                                     <Route path="/dashboard/rwa" element={<RWA />} />
                                     <Route path="/dashboard/governance" element={<Governance />} />

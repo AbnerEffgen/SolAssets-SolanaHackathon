@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Coins, Users, LucideIcon } from "lucide-react";
+import { Coins, Users, LucideIcon, Package, Building } from "lucide-react"; 
 import { useHackaProgram } from "@/hooks/useHackaProgram";
-import { fetchRwaAssets, RwaAsset } from "@/integrations/supabase/rwa";
+import { fetchRwaAssets, RwaAsset } from "@/integrations/supabase/rwa"; 
 import { useAnchorWallet } from "@solana/wallet-adapter-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -16,7 +16,35 @@ import {
   Tooltip,
 } from "recharts";
 import { ProgramAccount } from "@coral-xyz/anchor";
-import { TokenRecord } from "@/idl/hacka_program";
+import { TokenRecord } from "@/idl/hacka_program"; 
+import { useNavigate } from "react-router-dom";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogDescription
+} from "@/components/ui/dialog"; 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"; 
+import { supabase } from "@/integrations/supabase/client"; 
+import { Database } from "@/integrations/supabase/types"; 
+import { toast } from "sonner";
+import { describeError } from "@/lib/solana"; 
+
+type Token = Database['public']['Tables']['tokens']['Row'];
+
+interface TokenMetrics {
+  totalAssetsLinked: number;
+  uniqueRwaHolders: number;
+  initialSupply: number;
+}
 
 interface DashboardStats {
   tokensCreated: number;
@@ -33,19 +61,25 @@ const statDetails: {
   label: string;
   icon: LucideIcon;
 }[] = [
-  { key: "tokensCreated", label: "Tokens Created", icon: Coins },
-  { key: "totalHolders", label: "Total Holders", icon: Users },
+  { key: "tokensCreated", label: "Total Tokens on Platform", icon: Coins },
+  { key: "totalHolders", label: "Total RWA Holders", icon: Users },
 ];
 
 const Dashboard = () => {
+  const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
+  const [myTokens, setMyTokens] = useState<Token[]>([]); 
+  const [allRwaAssets, setAllRwaAssets] = useState<RwaAsset[]>([]); 
+  const [selectedTokenId, setSelectedTokenId] = useState<string | null>(null);
+  const [selectedTokenMetrics, setSelectedTokenMetrics] = useState<TokenMetrics | null>(null);
+  const [isTokenMetricsLoading, setIsTokenMetricsLoading] = useState(false);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentActivity, setRecentActivity] = useState<RwaAsset[]>([]);
   const [tokenCreationData, setTokenCreationData] = useState<TokenCreationData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
+  const [error, setError] = useState<string | null>(null)
   const program = useHackaProgram();
   const wallet = useAnchorWallet();
+  const navigate = useNavigate();
 
   const calculateStats = (
     rwaAssets: RwaAsset[],
@@ -54,7 +88,7 @@ const Dashboard = () => {
     
     const tokensCreated = tokenRecords.length;
 
-    const holders = new Set(rwaAssets.map(asset => asset.owner_wallet).filter(Boolean));
+    const holders = new Set(rwaAssets.map(asset => asset.owner_wallet).filter(Boolean)); 
     const totalHolders = holders.size;
 
     return { tokensCreated, totalHolders };
@@ -69,15 +103,30 @@ const Dashboard = () => {
       try {
         setLoading(true);
         setError(null);
+        const fetchedRwaAssets = await fetchRwaAssets(); 
+        setAllRwaAssets(fetchedRwaAssets); 
 
-        const rwaAssets = await fetchRwaAssets();
-        const tokenRecords = await program.account.tokenRecord.all();
+        const tokenRecords = await program.account.tokenRecord.all(); 
 
-        const calculatedStats = calculateStats(rwaAssets, tokenRecords);
+        const calculatedStats = calculateStats(fetchedRwaAssets, tokenRecords);
         setStats(calculatedStats);
 
+        const { data: { user } } = await supabase.auth.getUser(); 
+        if (user) {
+          const { data: tokensData, error: tokensError } = await supabase
+            .from('tokens')
+            .select('*')
+            .eq('profile_id', user.id); 
+
+          if (tokensError) {
+            console.warn("Could not load user's tokens for modal:", tokensError);
+          } else {
+            setMyTokens(tokensData || []);
+          }
+        }
+
         const dailyCounts = new Map<string, number>();
-        rwaAssets.forEach(asset => {
+        fetchedRwaAssets.forEach(asset => {
           const date = new Date(asset.created_at);
           const dateString = date.toISOString().split('T')[0];
           dailyCounts.set(dateString, (dailyCounts.get(dateString) || 0) + 1);
@@ -89,7 +138,7 @@ const Dashboard = () => {
         
         setTokenCreationData(chartData);
 
-        const sortedAssets = [...rwaAssets].sort((a, b) => 
+        const sortedAssets = [...fetchedRwaAssets].sort((a, b) => 
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         );
         setRecentActivity(sortedAssets.slice(0, 3));
@@ -97,6 +146,9 @@ const Dashboard = () => {
       } catch (err) {
         console.error("Failed to load dashboard data:", err);
         setError("Failed to load dashboard data.");
+        if (err instanceof Error) {
+            toast.error("Failed to load dashboard data", { description: describeError(err) });
+        }
       } finally {
         setLoading(false);
       }
@@ -105,21 +157,138 @@ const Dashboard = () => {
     loadDashboardData();
   }, [program, wallet]);
 
+  const handleTokenSelect = (tokenId: string) => {
+    if (!tokenId) {
+        setSelectedTokenId(null);
+        setSelectedTokenMetrics(null);
+        return;
+    }
+
+    setIsTokenMetricsLoading(true);
+    setSelectedTokenId(tokenId);
+
+    const token = myTokens.find(t => t.id === tokenId);
+    if (!token) {
+        toast.error("Selected token not found.");
+        setIsTokenMetricsLoading(false);
+        return;
+    }
+
+    const filteredAssets = allRwaAssets.filter(asset => asset.token_code === token.tag); 
+    const uniqueHolders = new Set(filteredAssets.map(a => a.owner_wallet).filter(Boolean)); 
+
+    setSelectedTokenMetrics({
+        totalAssetsLinked: filteredAssets.length,
+        uniqueRwaHolders: uniqueHolders.size,
+        initialSupply: token.quantity, 
+    });
+
+    setIsTokenMetricsLoading(false);
+  };
+
+  const handleModalOpenChange = (isOpen: boolean) => {
+    setIsTokenModalOpen(isOpen);
+    if (!isOpen) {
+        setSelectedTokenId(null);
+        setSelectedTokenMetrics(null);
+    }
+  }
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
         <div>
-          <h2 className="text-3xl font-bold mb-2">Dashboard</h2>
-          <p className="text-muted-foreground">Overview of your tokenized assets</p>
+          <h2 className="text-3xl font-bold mb-2">Platform Dashboard</h2>
+          <p className="text-muted-foreground">Overview of all tokenized assets</p>
         </div>
 
         <div className="flex items-center gap-4">
-          <Button variant="outline" disabled>
+          <Button variant="outline" onClick={() => navigate('/my-dashboard')}>
             My Dashboard
           </Button>
-          <Button variant="outline" disabled>
-            Tokens Dashboard
-          </Button>
+
+          <Dialog open={isTokenModalOpen} onOpenChange={handleModalOpenChange}>
+            <DialogTrigger asChild>
+              <Button variant="outline" disabled={loading || myTokens.length === 0}>
+                Token Metrics
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md bg-card border-border">
+              <DialogHeader>
+                <DialogTitle className="text-2xl">Token Dashboard</DialogTitle>
+                <DialogDescription>
+                  Select one of your created tokens to see its metrics.
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="space-y-4 pt-4">
+                <Select
+                  onValueChange={handleTokenSelect}
+                  value={selectedTokenId || ""}
+                  disabled={loading || myTokens.length === 0}
+                >
+                  <SelectTrigger className="bg-background/50">
+                    <SelectValue placeholder={myTokens.length > 0 ? "Select your token..." : "No tokens found"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {myTokens.map((token) => (
+                      <SelectItem key={token.id} value={token.id}>
+                        {token.name} ({token.tag})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {isTokenMetricsLoading ? (
+                  <div className="space-y-4">
+                    <Skeleton className="h-24 w-full" />
+                    <Skeleton className="h-24 w-full" />
+                    <Skeleton className="h-24 w-full" />
+                  </div>
+                ) : selectedTokenMetrics ? (
+                  <div className="space-y-3">
+                    <Card className="p-4 bg-background/50">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-lg bg-primary/10">
+                                <Package className="w-5 h-5 text-primary" />
+                            </div>
+                            <div>
+                                <p className="text-sm text-muted-foreground">Total RWA Assets Linked</p>
+                                <p className="text-2xl font-bold">{selectedTokenMetrics.totalAssetsLinked.toLocaleString()}</p>
+                            </div>
+                        </div>
+                    </Card>
+                    <Card className="p-4 bg-background/50">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-lg bg-primary/10">
+                                <Building className="w-5 h-5 text-primary" />
+                            </div>
+                            <div>
+                                <p className="text-sm text-muted-foreground">Unique RWA Holders</p>
+                                <p className="text-2xl font-bold">{selectedTokenMetrics.uniqueRwaHolders.toLocaleString()}</p>
+                            </div>
+                        </div>
+                    </Card>
+                    <Card className="p-4 bg-background/50">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-lg bg-primary/10">
+                                <Coins className="w-5 h-5 text-primary" />
+                            </div>
+                            <div>
+                                <p className="text-sm text-muted-foreground">Initial Supply</p>
+                                <p className="text-2xl font-bold">{selectedTokenMetrics.initialSupply.toLocaleString()}</p>
+                            </div>
+                        </div>
+                    </Card>
+                  </div>
+                ) : (
+                    selectedTokenId && (
+                        <p className="text-sm text-center text-muted-foreground">No RWA assets found for this token.</p>
+                    )
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">
@@ -159,7 +328,7 @@ const Dashboard = () => {
 
         <div className="grid gap-6 lg:grid-cols-2">
           <Card className="p-6 bg-card/50 backdrop-blur-sm border-border">
-            <h3 className="text-xl font-semibold mb-4">Daily Token Creation</h3>
+            <h3 className="text-xl font-semibold mb-4">Daily RWA Registration</h3>
             <div className="h-64">
               {loading ? (
                 <Skeleton className="h-full w-full" />
@@ -192,19 +361,19 @@ const Dashboard = () => {
                       contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "0.5rem" }}
                       labelFormatter={(label) => new Date(label).toLocaleDateString('en-US', { day: '2-digit', month: 'long', year: 'numeric' })}
                     />
-                    <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name="Tokens Created" />
+                    <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name="RWAs Registered" />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
                 <div className="h-full flex items-center justify-center text-muted-foreground">
-                  No token creation data found.
+                  No RWA registration data found.
                 </div>
               )}
             </div>
           </Card>
 
           <Card className="p-6 bg-card/50 backdrop-blur-sm border-border">
-            <h3 className="text-xl font-semibold mb-4">Recent Activity</h3>
+            <h3 className="text-xl font-semibold mb-4">Recent Platform Activity</h3>
             <div className="space-y-4">
               {loading ? (
                 <>
