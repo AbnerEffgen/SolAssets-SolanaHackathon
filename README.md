@@ -156,7 +156,7 @@ To get a local copy up and running, follow these steps.
 
 ---
 
-## 💬 Community
+## Community
 
 Join our community to stay updated, ask questions, and contribute!
 
