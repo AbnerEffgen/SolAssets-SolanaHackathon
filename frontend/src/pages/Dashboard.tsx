@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Coins, Users, LucideIcon, Package, Building } from "lucide-react"; 
+import { Coins, Users, LucideIcon, Package, Building } from "lucide-react";
 import { useHackaProgram } from "@/hooks/useHackaProgram";
-import { fetchRwaAssets, RwaAsset } from "@/integrations/supabase/rwa"; 
+import { fetchRwaAssets, RwaAsset } from "@/integrations/supabase/rwa"; //
 import { useAnchorWallet } from "@solana/wallet-adapter-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -15,8 +15,9 @@ import {
   YAxis,
   Tooltip,
 } from "recharts";
-import { ProgramAccount } from "@coral-xyz/anchor";
-import { TokenRecord } from "@/idl/hacka_program"; 
+// import { ProgramAccount } from "@coral-xyz/anchor"; // <-- REMOVIDO
+// import { TokenRecord } from "@/idl/hacka_program"; // <-- REMOVIDO
+
 import { useNavigate } from "react-router-dom";
 import {
   Dialog,
@@ -25,18 +26,18 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogDescription
-} from "@/components/ui/dialog"; 
+} from "@/components/ui/dialog"; //
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"; 
-import { supabase } from "@/integrations/supabase/client"; 
-import { Database } from "@/integrations/supabase/types"; 
+} from "@/components/ui/select"; //
+import { supabase } from "@/integrations/supabase/client"; //
+import { Database } from "@/integrations/supabase/types"; //
 import { toast } from "sonner";
-import { describeError } from "@/lib/solana"; 
+import { describeError } from "@/lib/solana"; //
 
 type Token = Database['public']['Tables']['tokens']['Row'];
 
@@ -67,56 +68,79 @@ const statDetails: {
 
 const Dashboard = () => {
   const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
-  const [myTokens, setMyTokens] = useState<Token[]>([]); 
-  const [allRwaAssets, setAllRwaAssets] = useState<RwaAsset[]>([]); 
+  const [myTokens, setMyTokens] = useState<Token[]>([]); //
+  const [allRwaAssets, setAllRwaAssets] = useState<RwaAsset[]>([]); //
   const [selectedTokenId, setSelectedTokenId] = useState<string | null>(null);
   const [selectedTokenMetrics, setSelectedTokenMetrics] = useState<TokenMetrics | null>(null);
   const [isTokenMetricsLoading, setIsTokenMetricsLoading] = useState(false);
+
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentActivity, setRecentActivity] = useState<RwaAsset[]>([]);
   const [tokenCreationData, setTokenCreationData] = useState<TokenCreationData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null);
+
   const program = useHackaProgram();
   const wallet = useAnchorWallet();
   const navigate = useNavigate();
 
+  // --- FUNÇÃO calculateStats MODIFICADA ---
+  // Agora recebe 'tokenCount' (um número) em vez de 'tokenRecords' (uma array)
   const calculateStats = (
     rwaAssets: RwaAsset[],
-    tokenRecords: ProgramAccount<TokenRecord>[]
+    tokenCount: number // <-- Alterado
   ): DashboardStats => {
     
-    const tokensCreated = tokenRecords.length;
+    const tokensCreated = tokenCount; // <-- Alterado
 
-    const holders = new Set(rwaAssets.map(asset => asset.owner_wallet).filter(Boolean)); 
+    const holders = new Set(rwaAssets.map(asset => asset.owner_wallet).filter(Boolean)); //
     const totalHolders = holders.size;
 
     return { tokensCreated, totalHolders };
   };
+  // --- FIM DA MODIFICAÇÃO ---
 
   useEffect(() => {
     const loadDashboardData = async () => {
-      if (!program || !wallet) {
+      // Deixei !program de fora para a UI carregar mesmo sem o programa
+      if (!wallet) {
+        setLoading(false); // Permite que a UI renderize sem dados
         return;
       }
 
       try {
         setLoading(true);
         setError(null);
-        const fetchedRwaAssets = await fetchRwaAssets(); 
-        setAllRwaAssets(fetchedRwaAssets); 
 
-        const tokenRecords = await program.account.tokenRecord.all(); 
+        // Fetch RWA Assets
+        const fetchedRwaAssets = await fetchRwaAssets(); //
+        setAllRwaAssets(fetchedRwaAssets);
 
-        const calculatedStats = calculateStats(fetchedRwaAssets, tokenRecords);
+        // --- LÓGICA ON-CHAIN REMOVIDA ---
+        // const tokenRecords = await program.account.tokenRecord.all(); // <-- REMOVIDO (Causava erro)
+
+        // --- NOVA LÓGICA: BUSCAR CONTAGEM TOTAL DE TOKENS DO SUPABASE ---
+        const { count: tokenCount, error: countError } = await supabase
+          .from('tokens')
+          .select('*', { count: 'exact', head: true });
+
+        if (countError) {
+          console.error("Failed to fetch token count:", countError);
+          throw new Error("Failed to fetch token count.");
+        }
+        // --- FIM DA NOVA LÓGICA ---
+
+        // Calcular Stats Globais (Modificado para usar tokenCount)
+        const calculatedStats = calculateStats(fetchedRwaAssets, tokenCount || 0); // <-- Alterado
         setStats(calculatedStats);
 
-        const { data: { user } } = await supabase.auth.getUser(); 
+        // --- BUSCA DE TOKENS DO USUÁRIO (para o modal) ---
+        const { data: { user } } = await supabase.auth.getUser(); //
         if (user) {
           const { data: tokensData, error: tokensError } = await supabase
             .from('tokens')
             .select('*')
-            .eq('profile_id', user.id); 
+            .eq('profile_id', user.id); //
 
           if (tokensError) {
             console.warn("Could not load user's tokens for modal:", tokensError);
@@ -124,7 +148,9 @@ const Dashboard = () => {
             setMyTokens(tokensData || []);
           }
         }
+        // --- FIM DA BUSCA ---
 
+        // Preparar Chart Data
         const dailyCounts = new Map<string, number>();
         fetchedRwaAssets.forEach(asset => {
           const date = new Date(asset.created_at);
@@ -138,6 +164,7 @@ const Dashboard = () => {
         
         setTokenCreationData(chartData);
 
+        // Preparar Recent Activity
         const sortedAssets = [...fetchedRwaAssets].sort((a, b) => 
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         );
@@ -155,7 +182,7 @@ const Dashboard = () => {
     };
 
     loadDashboardData();
-  }, [program, wallet]);
+  }, [program, wallet]); // Mantido 'program' por precaução, mas não é mais usado para 'tokenRecords'
 
   const handleTokenSelect = (tokenId: string) => {
     if (!tokenId) {
@@ -174,13 +201,13 @@ const Dashboard = () => {
         return;
     }
 
-    const filteredAssets = allRwaAssets.filter(asset => asset.token_code === token.tag); 
-    const uniqueHolders = new Set(filteredAssets.map(a => a.owner_wallet).filter(Boolean)); 
+    const filteredAssets = allRwaAssets.filter(asset => asset.token_code === token.tag); //
+    const uniqueHolders = new Set(filteredAssets.map(a => a.owner_wallet).filter(Boolean)); //
 
     setSelectedTokenMetrics({
         totalAssetsLinked: filteredAssets.length,
         uniqueRwaHolders: uniqueHolders.size,
-        initialSupply: token.quantity, 
+        initialSupply: token.quantity, //
     });
 
     setIsTokenMetricsLoading(false);
@@ -209,8 +236,8 @@ const Dashboard = () => {
 
           <Dialog open={isTokenModalOpen} onOpenChange={handleModalOpenChange}>
             <DialogTrigger asChild>
-              <Button variant="outline" disabled={loading || myTokens.length === 0}>
-                Token Metrics
+              <Button variant="outline" disabled={!wallet || myTokens.length === 0}>
+                { !wallet ? "Connect Wallet" : myTokens.length === 0 ? "No Tokens Found" : "Token Metrics" }
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-md bg-card border-border">
@@ -289,6 +316,7 @@ const Dashboard = () => {
               </div>
             </DialogContent>
           </Dialog>
+
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">
@@ -300,6 +328,10 @@ const Dashboard = () => {
           ) : error ? (
             <Card className="p-6 md:col-span-2 text-center text-destructive">
               {error}
+            </Card>
+          ) : !wallet ? (
+             <Card className="p-6 md:col-span-2 text-center text-muted-foreground">
+              Please connect your wallet to view platform data.
             </Card>
           ) : stats ? (
             statDetails.map((stat) => {
@@ -332,6 +364,10 @@ const Dashboard = () => {
             <div className="h-64">
               {loading ? (
                 <Skeleton className="h-full w-full" />
+              ) : !wallet ? (
+                 <div className="h-full flex items-center justify-center text-muted-foreground">
+                  Connect wallet to see data.
+                </div>
               ) : tokenCreationData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart 
@@ -381,6 +417,8 @@ const Dashboard = () => {
                   <Skeleton className="h-16" />
                   <Skeleton className="h-16" />
                 </>
+              ) : !wallet ? (
+                 <p className="text-sm text-muted-foreground">Connect wallet to see data.</p>
               ) : recentActivity.length > 0 ? (
                 recentActivity.map((activity) => (
                   <div key={activity.id} className="flex items-start gap-3 pb-4 border-b border-border last:border-0">
