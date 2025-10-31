@@ -42,10 +42,28 @@ import {
 import { cn } from "@/lib/utils";
 import { describeError } from "@/lib/solana";
 
+// NOTE: These values correspond to the database enum and should not be translated.
 const assetStatusOptions = ["Pendente", "Em Análise", "Aprovado", "Rejeitado"] as const;
 
-const numberFormatter = new Intl.NumberFormat("pt-BR");
+// Helper function to translate status for display
+const translateStatus = (status: AssetStatus): string => {
+  switch (status) {
+    case "Pendente":
+      return "Pending";
+    case "Em Análise":
+      return "In Review";
+    case "Aprovado":
+      return "Approved";
+    case "Rejeitado":
+      return "Rejected";
+    default:
+      return status;
+  }
+};
 
+const numberFormatter = new Intl.NumberFormat("en-US");
+
+// Status logic relies on Portuguese enum values
 const getStatusIcon = (status: AssetStatus) => {
   switch (status) {
     case "Aprovado":
@@ -78,17 +96,17 @@ const getStatusColor = (status: AssetStatus) => {
 
 const formatDate = (value: string | null | undefined) => {
   if (!value) {
-    return "Data não informada";
+    return "Date not provided";
   }
   const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString("pt-BR");
+  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString("en-US");
 };
 
 const formatPercentage = (value: number | null) => {
   if (value === null || Number.isNaN(value)) {
-    return "Não informado";
+    return "Not provided";
   }
-  return `${value.toLocaleString("pt-BR", {
+  return `${value.toLocaleString("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}%`;
@@ -133,7 +151,7 @@ export const RwaDetailsDialog = ({
 
   const hasStatusChanges = asset
     ? statusDraft !== asset.status ||
-      (statusDraft === "Rejeitado"
+      (statusDraft === "Rejeitado" // Logic uses PT enum
         ? trimmedReason !== (asset.rejection_reason ?? "")
         : Boolean(asset.rejection_reason))
     : false;
@@ -147,10 +165,10 @@ export const RwaDetailsDialog = ({
     let assetAfterUpdate = asset;
     let success = true;
 
-    // 1. Salvar mudanças de status, se houver
+    // 1. Save status changes, if any
     if (hasStatusChanges) {
-      if (statusDraft === "Rejeitado" && trimmedReason.length < 3) {
-        toast.error("Informe um motivo para a rejeição com pelo menos 3 caracteres.");
+      if (statusDraft === "Rejeitado" && trimmedReason.length < 3) { // Logic uses PT enum
+        toast.error("Please provide a rejection reason with at least 3 characters.");
         setIsSaving(false);
         return;
       }
@@ -158,24 +176,24 @@ export const RwaDetailsDialog = ({
       const payload: UpdateRwaAssetStatusInput = {
         assetId: asset.id,
         status: statusDraft,
-        rejection_reason: statusDraft === "Rejeitado" ? trimmedReason : null,
+        rejection_reason: statusDraft === "Rejeitado" ? trimmedReason : null, // Logic uses PT enum
       };
 
       try {
         assetAfterUpdate = await updateRwaAssetStatus(payload);
-        toast.success("Status atualizado com sucesso!");
+        toast.success("Status updated successfully!");
       } catch (err) {
         success = false;
-        toast.error("Não foi possível atualizar o status.", {
+        toast.error("Could not update status.", {
           description: describeError(err),
         });
       }
     }
 
-    // 2. Fazer upload do documento, se houver e o passo anterior foi bem sucedido
+    // 2. Upload the document, if present and the previous step succeeded
     if (selectedFile && success) {
       if (!profileId) {
-        toast.error("ID do perfil não encontrado. Por favor, recarregue a página.");
+        toast.error("Profile ID not found. Please reload the page.");
         setIsSaving(false);
         return;
       }
@@ -185,17 +203,17 @@ export const RwaDetailsDialog = ({
           ...assetAfterUpdate,
           documents: [...assetAfterUpdate.documents, newDocument],
         };
-        toast.success("Documento enviado com sucesso!");
-        setSelectedFile(null); // Limpa o arquivo após o envio
+        toast.success("Document uploaded successfully!");
+        setSelectedFile(null); // Clear the file after upload
       } catch (error) {
         success = false;
-        toast.error("Falha ao enviar o documento.", {
+        toast.error("Failed to upload document.", {
           description: describeError(error),
         });
       }
     }
 
-    // 3. Atualizar o estado final do ativo
+    // 3. Update the final asset state
     if (success) {
       onAssetUpdate(assetAfterUpdate);
     }
@@ -211,7 +229,7 @@ export const RwaDetailsDialog = ({
             <DialogHeader>
               <DialogTitle>{asset.name}</DialogTitle>
               <DialogDescription>
-                Acompanhe a documentação e atualize o status desse ativo real.
+                Track documentation and update the status of this real-world asset.
               </DialogDescription>
             </DialogHeader>
 
@@ -219,11 +237,11 @@ export const RwaDetailsDialog = ({
               <div className="space-y-6">
                 <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">Status atual</p>
+                    <p className="text-sm text-muted-foreground">Current Status</p>
                     <div className="flex items-center gap-2">
                       {getStatusIcon(statusDraft)}
                       <span className={cn("font-medium", getStatusColor(statusDraft))}>
-                        {statusDraft}
+                        {translateStatus(statusDraft)}
                       </span>
                     </div>
                   </div>
@@ -239,7 +257,7 @@ export const RwaDetailsDialog = ({
                       <SelectContent>
                         {assetStatusOptions.map((status) => (
                           <SelectItem key={status} value={status}>
-                            {status === "Em Análise" ? "Em análise" : status}
+                            {translateStatus(status)}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -247,18 +265,18 @@ export const RwaDetailsDialog = ({
                   </div>
                 </div>
 
-                {statusDraft === "Rejeitado" && (
+                {statusDraft === "Rejeitado" && ( // Logic uses PT enum
                   <div className="space-y-2">
-                    <p className="text-sm font-medium text-muted-foreground">Motivo da rejeição</p>
+                    <p className="text-sm font-medium text-muted-foreground">Rejection Reason</p>
                     <Textarea
-                      placeholder="Descreva o que precisa ser ajustado"
+                      placeholder="Describe what needs to be adjusted"
                       value={rejectionReason}
                       onChange={(event) => setRejectionReason(event.target.value)}
                       className="bg-background/60 min-h-[100px]"
                       disabled={isSaving}
                     />
                     <p className="text-xs text-muted-foreground">
-                      Essa mensagem será exibida para o time responsável pelo ativo.
+                      This message will be displayed to the team responsible for the asset.
                     </p>
                   </div>
                 )}
@@ -268,38 +286,38 @@ export const RwaDetailsDialog = ({
                     <p className="text-xs uppercase tracking-wide text-muted-foreground">Token</p>
                     <p className="text-lg font-semibold">{asset.token_code}</p>
                     <p className="text-xs text-muted-foreground">
-                      Cadastrado em {formatDate(asset.created_at)}
+                      Registered on {formatDate(asset.created_at)}
                     </p>
                   </div>
                   <div className="rounded-lg border border-border/60 bg-muted/10 p-4 space-y-3">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <MapPin className="h-4 w-4" />
-                      <span>Localização</span>
+                      <span>Location</span>
                     </div>
-                    <p className="text-sm font-medium">{asset.location ?? "Não informada"}</p>
+                    <p className="text-sm font-medium">{asset.location ?? "Not provided"}</p>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Wallet className="h-4 w-4" />
-                      <span>Carteira responsável</span>
+                      <span>Responsible Wallet</span>
                     </div>
                     <p className="text-sm font-medium break-all">
-                      {asset.owner_wallet ?? "Não vinculada"}
+                      {asset.owner_wallet ?? "Not linked"}
                     </p>
                   </div>
                   <div className="rounded-lg border border-border/60 bg-muted/10 p-4 space-y-3">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Coins className="h-4 w-4" />
-                      <span>Valuation estimado</span>
+                      <span>Estimated Valuation</span>
                     </div>
                     <p className="text-sm font-medium">
                       {asset.valuation !== null
-                        ? `R$ ${numberFormatter.format(asset.valuation)}`
-                        : "Não informado"}
+                        ? `$${numberFormatter.format(asset.valuation)}`
+                        : "Not provided"}
                     </p>
                   </div>
                   <div className="rounded-lg border border-border/60 bg-muted/10 p-4 space-y-3">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <BadgePercent className="h-4 w-4" />
-                      <span>Yield esperado (a.a.)</span>
+                      <span>Expected Yield (p.a.)</span>
                     </div>
                     <p className="text-sm font-medium">{formatPercentage(asset.yield_rate)}</p>
                   </div>
@@ -307,24 +325,24 @@ export const RwaDetailsDialog = ({
 
                 {asset.description && (
                   <div className="space-y-2">
-                    <h4 className="text-sm font-semibold text-muted-foreground">Descrição</h4>
+                    <h4 className="text-sm font-semibold text-muted-foreground">Description</h4>
                     <p className="text-sm text-muted-foreground">{asset.description}</p>
                   </div>
                 )}
 
                 {asset.document_requirements && (
                   <div className="space-y-2">
-                    <h4 className="text-sm font-semibold text-muted-foreground">Documentação exigida</h4>
+                    <h4 className="text-sm font-semibold text-muted-foreground">Required Documentation</h4>
                     <p className="text-sm text-muted-foreground">{asset.document_requirements}</p>
                   </div>
                 )}
 
                 <div className="space-y-4 rounded-lg border border-border bg-card/50 p-4">
-                  <h3 className="font-semibold text-lg">Documentos</h3>
+                  <h3 className="font-semibold text-lg">Documents</h3>
                   <div className="space-y-2">
                     {asset.documents.length === 0 ? (
                       <p className="text-sm text-muted-foreground text-center py-4">
-                        Nenhum documento enviado para este ativo.
+                        No documents submitted for this asset.
                       </p>
                     ) : (
                       asset.documents.map((doc) => (
@@ -341,13 +359,13 @@ export const RwaDetailsDialog = ({
                                 {doc.name}
                               </a>
                               <span className="text-xs text-muted-foreground">
-                                Enviado em: {formatDate(doc.submitted_at)}
+                                Submitted on: {formatDate(doc.submitted_at)}
                               </span>
                             </div>
                           </div>
                           <div className="flex items-center gap-2 text-sm">
                             {getStatusIcon(doc.status)}
-                            <span className={cn(getStatusColor(doc.status))}>{doc.status}</span>
+                            <span className={cn(getStatusColor(doc.status))}>{translateStatus(doc.status)}</span>
                           </div>
                         </div>
                       ))
@@ -357,7 +375,7 @@ export const RwaDetailsDialog = ({
                   <div className="space-y-2 pt-4 border-t border-border">
                     <FileUpload
                       id="document-upload-detail"
-                      label="Enviar novo documento"
+                      label="Upload new document"
                       selectedFile={selectedFile}
                       onFileChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
                       onFileClear={() => setSelectedFile(null)}
@@ -370,7 +388,7 @@ export const RwaDetailsDialog = ({
 
             <DialogFooter className="pt-4 border-t border-border">
               <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-                Fechar
+                Close
               </Button>
               <Button
                 type="button"
@@ -378,7 +396,7 @@ export const RwaDetailsDialog = ({
                 onClick={handleSaveChanges}
                 disabled={!hasChanges || isSaving}
               >
-                {isSaving ? "Salvando..." : "Salvar alterações"}
+                {isSaving ? "Saving..." : "Save Changes"}
               </Button>
             </DialogFooter>
           </>
